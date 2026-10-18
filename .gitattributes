@@ -1,0 +1,68 @@
+# ============================================================
+# Git LFS：二进制资源交给 LFS，文本文件走普通 Git
+# 新增资源类型时，先在这里加规则，再执行：
+#   git lfs track "*.xxx"
+# 注意：.gitattributes 本身必须提交。
+# ============================================================
+
+# ---------- 图片 / 贴图 ----------
+*.png filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.jpeg filter=lfs diff=lfs merge=lfs -text
+*.tga filter=lfs diff=lfs merge=lfs -text
+*.psd filter=lfs diff=lfs merge=lfs -text
+*.tif filter=lfs diff=lfs merge=lfs -text
+*.tiff filter=lfs diff=lfs merge=lfs -text
+*.exr filter=lfs diff=lfs merge=lfs -text
+*.hdr filter=lfs diff=lfs merge=lfs -text
+
+# ---------- 模型 / 动画 ----------
+*.fbx filter=lfs diff=lfs merge=lfs -text
+*.obj filter=lfs diff=lfs merge=lfs -text
+*.blend filter=lfs diff=lfs merge=lfs -text
+*.max filter=lfs diff=lfs merge=lfs -text
+*.ma filter=lfs diff=lfs merge=lfs -text
+*.mb filter=lfs diff=lfs merge=lfs -text
+
+# ---------- 音频 ----------
+*.wav filter=lfs diff=lfs merge=lfs -text
+*.mp3 filter=lfs diff=lfs merge=lfs -text
+*.ogg filter=lfs diff=lfs merge=lfs -text
+*.aiff filter=lfs diff=lfs merge=lfs -text
+*.flac filter=lfs diff=lfs merge=lfs -text
+
+# ---------- 字体 ----------
+*.ttf filter=lfs diff=lfs merge=lfs -text
+*.otf filter=lfs diff=lfs merge=lfs -text
+
+# ---------- 视频 ----------
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+*.mov filter=lfs diff=lfs merge=lfs -text
+*.webm filter=lfs diff=lfs merge=lfs -text
+
+# ============================================================
+# 文本文件：统一 LF，便于跨平台与 diff
+# ============================================================
+*.cs text eol=lf
+*.shader text eol=lf
+*.hlsl text eol=lf
+*.cginc text eol=lf
+*.asmdef text eol=lf
+*.asmref text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# ============================================================
+# Unity YAML 合并（单人开发暂时不需要）
+# 若后续多人协作，配置好 UnityYAMLMerge.exe 后取消注释：
+#
+# *.unity merge=unityyamlmerge eol=lf
+# *.prefab merge=unityyamlmerge eol=lf
+# *.asset merge=unityyamlmerge eol=lf
+# *.meta merge=unityyamlmerge eol=lf
+#
+# git config merge.unityyamlmerge.name "Unity SmartMerge"
+# git config merge.unityyamlmerge.driver "\"<UnityEditorPath>/Data/Tools/UnityYAMLMerge.exe\" merge -p \"%O\" \"%A\" \"%B\" \"%A\""
+# ============================================================

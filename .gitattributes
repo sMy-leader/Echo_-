@@ -41,6 +41,14 @@
 *.webm filter=lfs diff=lfs merge=lfs -text
 
 # ============================================================
+# Unity 序列化 YAML：保留 "m_Name: " 的尾随空格，避免 diff --check 误报
+# ============================================================
+*.unity whitespace=-trailing-space
+*.prefab whitespace=-trailing-space
+*.asset whitespace=-trailing-space
+*.meta whitespace=-trailing-space
+
+# ============================================================
 # 文本文件：统一 LF，便于跨平台与 diff
 # ============================================================
 *.cs text eol=lf

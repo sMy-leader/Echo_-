@@ -17,6 +17,10 @@ indent_size = 2
 [*.md]
 trim_trailing_whitespace = false
 
+# Unity 序列化 YAML 会写入 "m_Name: " 这类尾随空格，不要自动清理
+[*.{unity,prefab,asset,meta}]
+trim_trailing_whitespace = false
+
 [*.{shader,hlsl,cginc}]
 indent_size = 4
 

@@ -134,6 +134,7 @@ namespace Game.Presentation
                     TriggerFailure();
                 }
 
+                // 失败冷却计时，避免同一 tick 多个守卫重复触发。
                 if (_failureCooldown > 0f)
                 {
                     _failureCooldown = Mathf.Max(0f, _failureCooldown - GameConstants.TickDelta);
@@ -206,7 +207,7 @@ namespace Game.Presentation
                 {
                     continue;
                 }
-
+                //如果守卫攻击的目标是玩家，则触发失败（回溯到检查点）
                 if (guard.AttackTargetIsPlayer)
                 {
                     TriggerFailure();
@@ -346,6 +347,7 @@ namespace Game.Presentation
             CharacterVfx vfx = echoRoot.AddComponent<CharacterVfx>();
 
             GameObject visual;
+            //实例化残影模型或回退胶囊（Prefab）
             if (echoVisualPrefab != null)
             {
                 visual = Instantiate(echoVisualPrefab, echoRoot.transform, false);

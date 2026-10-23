@@ -164,6 +164,34 @@ namespace Game.Tests.EditMode
             Assert.AreEqual(GuardState.Return, guard.State);
         }
 
+        [Test]
+        public void AlertInRange_AttackHitsAfterWindup()
+        {
+            GuardBrain guard = CreateGuard(new[] { new Vec3(0f, 0f, 5f) });
+            List<PerceptionTarget> targets = new List<PerceptionTarget>
+            {
+                new PerceptionTarget(0, new Vec3(0f, 0f, 2f), true)
+            };
+            FakeVisionWorld vision = new FakeVisionWorld();
+
+            bool hit = false;
+            for (int i = 0; i < 80; i++)
+            {
+                guard.Tick(Step, targets, vision);
+                if (!guard.AttackHit)
+                {
+                    continue;
+                }
+
+                hit = true;
+                Assert.IsTrue(guard.AttackTargetIsPlayer);
+                Assert.AreEqual(0, guard.AttackTargetId);
+                break;
+            }
+
+            Assert.IsTrue(hit, "守卫应该在进入 Alert 后蓄力并命中近距离目标。");
+        }
+
         private static GuardBrain CreateGuard(IReadOnlyList<Vec3> patrolPoints)
         {
             return new GuardBrain(

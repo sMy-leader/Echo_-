@@ -16,7 +16,7 @@ namespace Game.Editor
         private const string LevelPath = "Assets/Scenes/Level_00.unity";
         private const string BootPath = "Assets/Scenes/Boot.unity";
         private const string PlayerVisualPrefabPath = "Assets/Game/Art/Prefabs/Player_robot.prefab";
-        private const string GuardVisualPrefabPath = "Assets/Game/Art/Prefabs/Enemy_robot.prefab";
+        private const string GuardVisualPrefabPath = "Assets/Game/Art/Prefabs/Enemy_robot1.prefab";
         private const string EchoVisualPrefabPath = "Assets/Game/Art/Prefabs/Echo_robot.prefab";
         private const string VfxMaterialPath = "Assets/Game/Art/VFX/M_Vfx_Additive.mat";
 
@@ -184,6 +184,11 @@ namespace Game.Editor
             }
 
             playerView.visualRoot = playerVisual.transform;
+            playerView.animator = playerVisual.GetComponentInChildren<Animator>();
+            if (playerView.animator != null)
+            {
+                playerView.animator.applyRootMotion = false;
+            }
 
             CharacterVfx playerVfx = player.AddComponent<CharacterVfx>();
             playerVfx.visualRoot = playerVisual.transform;
@@ -221,6 +226,11 @@ namespace Game.Editor
             }
 
             guardView.visualRoot = guardVisual.transform;
+            guardView.animator = guardVisual.GetComponentInChildren<Animator>();
+            if (guardView.animator != null)
+            {
+                guardView.animator.applyRootMotion = false;
+            }
 
             CharacterVfx guardVfx = guard.AddComponent<CharacterVfx>();
             guardVfx.visualRoot = guardVisual.transform;

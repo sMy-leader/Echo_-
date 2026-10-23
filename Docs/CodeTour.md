@@ -1147,9 +1147,10 @@ Guard: Alert   Suspicion: 100   Target: 0
 ### 8.10.9 当前边界
 
 - **直线移动**：GuardBrain 目前直接 `MoveTowards`，不处理墙；L1 布局时替换为胶囊碰撞/寻路。
-- **没有攻击**：Alert 只追到 2.2m 并面向目标，不造成失败。
+- **攻击已接入**：Alert 进入 2.4m → 0.4s 蓄力 → `AttackHit`；命中本体触发失败回溯，命中残影只击杀残影。
+- **残影死亡已接入**：`EchoPlayback.IsAlive` / `EchoManager.TryKill`；死亡后下一 tick 移除，视图播放消散爆发。
+- **失败回溯当前是立即恢复 + HUD/相机震动**；0.8s 时间撕裂后处理后续补。
 - **没有听觉**：M3 再接声音事件。
-- **没有残影死亡**：残影目前全部 `IsAlive = true`。
 - **没有动画**：GuardView 只做位置/朝向插值和颜色。
 
 ### 8.10.10 扩展点
@@ -1177,7 +1178,7 @@ Guard: Alert   Suspicion: 100   Target: 0
 - Alert 丢失目标 6s → Search；
 - Search 8s → Return。
 
-当前测试总数：**33/33 通过**。
+当前测试总数：**35/35 通过**。
 
 ## 9. 机关：压力板与门
 
@@ -1305,7 +1306,11 @@ ActivationAggregator.Tick(dt, count)
 2. 模型 pivot 对齐脚底；如果模型 pivot 在胯部，给 `visualRoot` 加偏移；
 3. 模型不要挂 Collider；
 4. 逻辑胶囊尺寸在 `GameConstants` / `GuardConfig` 里调；
-5. Animator 只驱动视觉，Root Motion 关闭。
+5. Animator 只驱动视觉，Root Motion 关闭；
+6. 参数约定：
+   - 玩家：`Speed` float，0 = Idle，0.5 = Sneak，1 = Walk；
+   - 守卫：`Speed` float，0 = Idle，1 = Jog；`Attack` Trigger 播放 punch；
+   - 不再给 Animator 设置 `State` / `Alert`，这些只留在 Domain/HUD；
 
 ### 10.4 `CameraRig`
 
@@ -1356,7 +1361,9 @@ for each view in _echoViews:
 - `forwardIndicator`：子物体放在 local `+Z`，随根节点旋转，解决胶囊从任何方向看都一样的问题；
 - `OnDrawGizmosSelected`：Scene 视图画眼睛位置、前向线、视锥边界；
 - 状态颜色：Patrol 蓝灰、Suspicious 黄、Alert 红、Search 紫、Return 绿；
-- 有 Animator 时驱动 `Speed/State/Alert` 参数；没有时做轻微浮动/前倾。
+- 有 Animator 时驱动 `Speed`（0 Idle / 1 Jog）和 `Attack` Trigger；没有时做轻微浮动/前倾。
+- `Alert` 保持 Idle，靠 VFX/颜色表达；不再给 Animator 设置不存在的 `State`/`Alert` 参数。
+- `GuardView` / `PlayerView` 在 `Awake` 自动从 `visualRoot` 解析 Animator，并关闭 Root Motion。
 
 正式模型到位后，前向指示器可以保留为“单眼/面罩/胸甲发光条”，也可以关掉，由模型自身朝向表达。
 
@@ -1505,7 +1512,7 @@ ECHO → Build M0 Scenes
 | `GameSessionTests` | 回溯条件、检查点恢复、冷却 | 回溯顺序正确 |
 | `GuardBrainTests` | 视锥、遮挡、近身警觉、警戒值、状态迁移 | 感知→状态机规则正确 |
 
-当前结果：**33/33 通过**。
+当前结果：**35/35 通过**。
 
 ### 13.2 测试怎么隔离 Unity
 
@@ -1561,8 +1568,8 @@ ECHO → Build M0 Scenes
 
 - 后端：**Mono2x**
 - 产物：`Builds/M0/ECHO.exe`
-- 验证：33/33 EditMode 测试；构建成功；启动日志 `Bootstrapper: loading scene Level_00`
-- 构建大小：155,833,300 bytes
+- 验证：35/35 EditMode 测试；构建成功；启动日志 `Bootstrapper: loading scene Level_00`
+- 构建大小：155,835,860 bytes
 - IL2CPP/HybridCLR：可选，当前未启用
 
 ### 14.4 Play Mode 检查清单

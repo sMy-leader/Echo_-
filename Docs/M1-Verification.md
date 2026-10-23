@@ -67,6 +67,15 @@ Guard: Alert   Suspicion: 100   Target: 0
 - 玩家在检查点，守卫在正前方；
 - 无 Console 错误。
 
+### 3.1 M1.6 攻击/失败验证
+
+- 玩家传送到守卫正面 2m；
+- 守卫进入 Alert，蓄力 0.4s；
+- 命中本体后玩家回到检查点 `(0, 0.02, -6)`；
+- 守卫保持 Alert，HUD 显示“被发现 — 时间回溯”；
+- 相机短震动；
+- Console 无错误。
+
 ## 4. Windows 构建
 
 ```text
@@ -74,7 +83,7 @@ Target:  StandaloneWindows64
 Backend: Mono2x
 Result:  Succeeded
 Errors:  0
-Size:    117,267,076 bytes
+Size:    155,835,860 bytes
 Output:  Builds/M0/ECHO.exe
 ```
 

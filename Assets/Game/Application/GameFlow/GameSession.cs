@@ -131,6 +131,7 @@ namespace Game.Application
             IReadOnlyList<EchoPlayback> echoes = Echoes.Echoes;
             for (int i = 0; i < echoes.Count; i++)
             {
+                //如果残影已经死亡，就不传入守卫的感知列表中
                 if (!echoes[i].IsAlive)
                 {
                     continue;

@@ -42,5 +42,21 @@ namespace Game.Tests.EditMode
             manager.Tick();
             Assert.AreEqual(0, manager.Count);
         }
+        [Test]
+        public void TryKill_MarksDeadAndRemovesOnNextTick()
+        {
+            EchoManager manager = new EchoManager();
+            EchoRecorder recorder = new EchoRecorder(2);
+            recorder.Record(new EchoFrame(Vec3.Zero, 0f, EchoState.Walk));
+            recorder.Record(new EchoFrame(new Vec3(0f, 0f, 1f), 0f, EchoState.Walk));
+            EchoPlayback echo = manager.Create(recorder);
+
+            Assert.IsTrue(manager.TryKill(echo.Id));
+            Assert.IsFalse(echo.IsAlive);
+            Assert.IsFalse(manager.TryKill(echo.Id));
+
+            manager.Tick();
+            Assert.AreEqual(0, manager.Count);
+        }
     }
 }

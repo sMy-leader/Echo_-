@@ -101,18 +101,36 @@ Player / Guard / Echo 根节点（脚底）
 
 ## 6. 动画策略
 
-当前模型是一体低模，没有骨骼/分件，因此：
+当前模型已经带骨骼/Animator，M1 采用**最小 Mecanim**：
 
-- **不需要强行上 Mecanim**；
-- 用程序化副动画：
-  - 上下浮动：`visualRoot.localPosition.y = base + sin(time * speed) * amplitude`
-  - 倾斜/前倾：`visualRoot.localRotation = base * Euler(lean, 0, tilt)`
-  - 受击/落地：短暂 scale.y 压缩再回弹
-- 如果以后有骨骼模型：
-  - 建最小 Animator Controller：Idle/Walk/Sneak/Interact；
-  - 守卫：Patrol/Suspicious/Investigate/Alert/Search/Return；
-  - Root Motion 关闭，参数由 View 驱动，玩法状态仍由 Domain 决定；
-  - 残影完整骨骼回放需要把 Animator 状态/时间写进 `EchoFrame`，后置。
+### 玩家
+
+- 参数：`Speed` Float；
+- 结构：`Locomotion` 1D BlendTree：
+  - `Speed = 0` → Idle
+  - `Speed = 0.5` → Sneak Walk
+  - `Speed = 1` → Walk
+- 代码 `PlayerView` 只设置 `Speed`，并兼容旧 Controller 的 `Sneaking` 参数；
+- Root Motion 关闭，位置由 `PlayerMotor` 决定。
+
+### 守卫
+
+- 参数：`Speed` Float，`Attack` Trigger；
+- 结构：`Locomotion`（Idle/Jog）+ `Attack`（punch，one-shot）；
+- 代码映射：
+  - Patrol / Investigate / Return → `Speed = 1`（Jog）
+  - Suspicious / Alert / Search → `Speed = 0`（Idle）
+  - `GuardBrain.IsAttacking` 上升沿 → `SetTrigger("Attack")`
+- `Alert` 不单独做动画状态，用 VFX/颜色表达；以后要 AlertIdle 再加参数。
+- Root Motion 关闭；`jog-inplace` 必须 Loop Time；punch 不循环。
+
+### 旧方案
+
+如果坚持 `idle / walk / sneak` 三个独立状态：
+
+- 需要用 `Sneaking` bool 做优先级；
+- `Speed=0.5` 且 `Sneaking=true` 时，`walk` 与 `sneak` 条件可能同时成立；
+- 不如 BlendTree 稳定，建议只作为过渡方案。
 
 ## 7. VFX 建议
 

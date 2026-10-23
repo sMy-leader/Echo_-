@@ -44,8 +44,7 @@ namespace Game.Presentation
         [SerializeField] private float bobFrequency = 4f;
 
         private static readonly int SpeedHash = Animator.StringToHash("Speed");
-        private static readonly int StateHash = Animator.StringToHash("State");
-        private static readonly int AlertHash = Animator.StringToHash("Alert");
+        private static readonly int AttackHash = Animator.StringToHash("Attack");
 
         private Renderer _visualRenderer;
         private Renderer _forwardRenderer;
@@ -53,6 +52,7 @@ namespace Game.Presentation
         private Quaternion _visualBaseRotation;
         private bool _hasSeparateVisualRoot;
         private GuardState _lastState = GuardState.Patrol;
+        private bool _wasAttacking;
 
         private void Awake()
         {
@@ -65,6 +65,17 @@ namespace Game.Presentation
             _visualBasePosition = visualRoot.localPosition;
             _visualBaseRotation = visualRoot.localRotation;
             _visualRenderer = visualRoot.GetComponentInChildren<Renderer>();
+
+            if (animator == null)
+            {
+                animator = visualRoot.GetComponentInChildren<Animator>();
+            }
+
+            if (animator != null)
+            {
+                // 玩法位置由 GuardBrain 决定，Animator 只做表现。
+                animator.applyRootMotion = false;
+            }
             _forwardRenderer = forwardIndicator != null
                 ? forwardIndicator.GetComponentInChildren<Renderer>()
                 : null;
@@ -131,9 +142,18 @@ namespace Game.Presentation
 
             if (animator != null)
             {
+                // Locomotion 只用 Speed：0 = Idle，1 = Jog；
+                // Alert 保持 Idle，靠 VFX/颜色表达警戒，不单独做 6 个动画状态。
                 animator.SetFloat(SpeedHash, IsMoving(guard.State) ? 1f : 0f);
-                animator.SetInteger(StateHash, (int)guard.State);
-                animator.SetBool(AlertHash, guard.State == GuardState.Alert);
+
+                // Attack 用 Trigger：只在 IsAttacking 的上升沿触发一次，
+                // 避免 0.4s 蓄力结束后 bool 变 false 把 punch 动画截断。
+                if (guard.IsAttacking && !_wasAttacking)
+                {
+                    animator.SetTrigger(AttackHash);
+                }
+
+                _wasAttacking = guard.IsAttacking;
             }
             else if (_hasSeparateVisualRoot)
             {
@@ -156,9 +176,9 @@ namespace Game.Presentation
 
         private static bool IsMoving(GuardState state)
         {
+            // Alert 用 Idle + VFX/颜色表达；只有真正位移的状态才播 Jog。
             return state == GuardState.Patrol
                 || state == GuardState.Investigate
-                || state == GuardState.Alert
                 || state == GuardState.Return;
         }
 

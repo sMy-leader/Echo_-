@@ -28,9 +28,9 @@ Unity：`6000.4.0f1`
 ## 3. 验证
 
 ```text
-EditMode Tests: 33/33 passed
+EditMode Tests: 35/35 passed
 Mono Build:     Succeeded
-Build Size:     155,833,300 bytes
+Build Size:     155,835,860 bytes
 Output:         Builds/M0/ECHO.exe
 Console:        无 error / warning
 ```

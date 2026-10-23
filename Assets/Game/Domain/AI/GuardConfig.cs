@@ -25,10 +25,10 @@ namespace Game.Domain
         public float CloseAwarenessDistance = 2f;
 
         // 追击时保持的最小距离，避免守卫和玩家胶囊/模型重叠。
-        public float MinApproachDistance = 2.2f;
+        public float MinApproachDistance = 1.5f;
 
         // 攻击：进入范围后先蓄力 0.4s，再判定命中；冷却防止连续扑击。
-        public float AttackRange = 2.4f;
+        public float AttackRange = 1.8f;
         public float AttackWindupSeconds = 0.4f;
         public float AttackCooldownSeconds = 1f;
 

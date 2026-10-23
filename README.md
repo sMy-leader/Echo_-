@@ -6,7 +6,7 @@
 
 **M0 垂直切片 + M1 守卫感知 + M1.5 视觉基础已可运行（灰盒）**：Boot → Level_00 → 踩板/回溯/残影，守卫可看见玩家并进入 Suspicious/Investigate/Alert；角色已有 visualRoot/Animator 接口，换正式模型不需要改 Domain。
 
-- 33 个 EditMode 测试通过
+- 35 个 EditMode 测试通过
 - Windows Mono 构建成功并启动
 - 第一版角色 VFX（悬停光圈 / 能量核心 / 拖尾 / Alert 脉冲 / 残影爆发）已接入
 - 验证记录：[Docs/M0-Verification.md](Docs/M0-Verification.md) · [Docs/M1-Verification.md](Docs/M1-Verification.md) · [Docs/M1.5-Verification.md](Docs/M1.5-Verification.md) · [Docs/VFX-Verification.md](Docs/VFX-Verification.md)

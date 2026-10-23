@@ -36,6 +36,12 @@ namespace Game.Presentation
         [SerializeField] private Color searchColor = new Color(0.75f, 0.35f, 1f);
         [SerializeField] private Color returnColor = new Color(0.2f, 0.85f, 0.5f);
 
+        [Header("Combat tuning")]
+        // 这些值会由 GameLoop 注入 GuardConfig；改 Inspector 后下次 Play 即可生效。
+        public float minApproachDistance = 1.1f;
+        public float attackRange = 1.4f;
+        public float attackHitDistanceBuffer = 0.3f;
+
         [Header("Patrol")]
         public Transform[] patrolPoints;
 

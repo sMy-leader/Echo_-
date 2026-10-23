@@ -8,7 +8,8 @@
     "Game.Framework",
     "Game.Infrastructure",
     "Game.Presentation",
-    "Game.Bootstrap"
+    "Game.Bootstrap",
+    "GUID:1826c0224c0d048b88112c79bbb0cd85"
   ],
   "includePlatforms": [
     "Editor"

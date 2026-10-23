@@ -305,7 +305,7 @@ namespace Game.Editor
         /// 固定透视相机：俯角 50°、FOV 45°、相对玩家偏移 (0,16,-12)。
         /// 这组值让出生点、压力板、门同时可见；后续可按构图微调。
         /// </summary>
-        private static void ConfigureCamera()
+        internal static void ConfigureCamera()
         {
             Camera camera = Object.FindAnyObjectByType<Camera>();
             if (camera == null)
@@ -327,7 +327,7 @@ namespace Game.Editor
                 rig = camera.gameObject.AddComponent<CameraRig>();
             }
 
-            rig.offset = new Vector3(0f, 16f, -12f);
+            rig.distance = 16f;
             rig.pitch = 50f;
             rig.yaw = 0f;
             rig.followSpeed = 3.5f;
@@ -336,7 +336,7 @@ namespace Game.Editor
         /// <summary>
         /// 主光只做方向光，灰盒不依赖烘焙光照。
         /// </summary>
-        private static void ConfigureLight()
+        internal static void ConfigureLight()
         {
             Light light = Object.FindAnyObjectByType<Light>();
             if (light != null)
@@ -350,7 +350,7 @@ namespace Game.Editor
         /// keepCollider=false 用于压力板/检查点这类“视觉地板”，避免挡住玩家胶囊。
         /// addColorView=false 用于门/压力板：它们由各自的 View 组件控制颜色，避免被覆盖。
         /// </summary>
-        private static GameObject CreateCube(
+        internal static GameObject CreateCube(
             string name,
             Vector3 position,
             Vector3 scale,
@@ -385,7 +385,7 @@ namespace Game.Editor
         /// 实例化正式角色 Prefab，作为角色的 visualRoot 子节点。
         /// Prefab 的 pivot 约定在脚底；找不到 Prefab 时返回 null，由调用方回退胶囊。
         /// </summary>
-        private static GameObject InstantiateCharacterVisual(
+        internal static GameObject InstantiateCharacterVisual(
             string prefabPath,
             Transform parent,
             float uniformScale)
@@ -409,7 +409,7 @@ namespace Game.Editor
         /// <summary>
         /// 灰盒 fallback：没有正式模型时使用的胶囊视觉体。
         /// </summary>
-        private static GameObject CreateCapsuleVisual(
+        internal static GameObject CreateCapsuleVisual(
             Transform parent,
             float localY,
             Vector3 scale)
@@ -426,7 +426,7 @@ namespace Game.Editor
         /// <summary>
         /// 视觉体不参与物理；模型自带 Collider 时也一并移除。
         /// </summary>
-        private static void RemoveColliders(GameObject root)
+        internal static void RemoveColliders(GameObject root)
         {
             Collider[] colliders = root.GetComponentsInChildren<Collider>(true);
             for (int i = 0; i < colliders.Length; i++)

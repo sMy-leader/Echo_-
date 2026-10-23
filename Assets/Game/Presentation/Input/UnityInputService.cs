@@ -18,6 +18,15 @@ namespace Game.Presentation
         private bool _rewindHeld;
         private bool _pauseHeld;
 
+        /// <summary>
+        /// 鼠标滚轮输入，供 CameraRig.Zoom 使用。只影响表现层，不影响逻辑。
+        /// 在 Update 中每帧读取一次，避免固定 tick 多次消费同一滚轮事件。
+        /// </summary>
+        public float ReadScroll()
+        {
+            return Mouse.current != null ? Mouse.current.scroll.ReadValue().y : 0f;
+        }
+
         public InputFrame Sample()
         {
             Keyboard keyboard = Keyboard.current;

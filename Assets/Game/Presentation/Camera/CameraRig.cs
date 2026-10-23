@@ -3,15 +3,40 @@ using UnityEngine;
 namespace Game.Presentation
 {
     /// <summary>
-    /// 固定视角相机：俯角/偏航固定，只做轻微平滑跟随与震动预留。
-    /// 不自由旋转，保证解谜构图稳定。
+    /// 室外固定俯视相机：俯角/偏航固定，只做跟随、滚轮缩放和潜行轻微拉近。
+    ///
+    /// 为什么不用 Cinemachine：
+    /// - 室外俯视只需要稳定的构图，不需要多目标/复杂轨道；
+    /// - 自定义 100 行即可，便于先验证玩法；
+    /// - 室内第三人称原型时再引入 Cinemachine ThirdPersonFollow/Deoccluder。
+    ///
+    /// 逻辑位置由 PlayerMotor 决定，相机只读 Transform，不参与玩法判定。
     /// </summary>
     public sealed class CameraRig : MonoBehaviour
     {
-        public Vector3 offset = new Vector3(0f, 16f, -12f);
+        [Header("Framing")]
+        public float distance = 16f;
+        public float minDistance = 10f;
+        public float maxDistance = 22f;
         public float pitch = 50f;
         public float yaw = 0f;
         public float followSpeed = 3.5f;
+
+        [Header("Zoom / Sneak")]
+        public float zoomSpeed = 8f;
+        public float zoomStep = 1.5f;
+        public float fieldOfView = 45f;
+        public float sneakDistanceScale = 0.85f;
+        public float sneakFieldOfView = 43f;
+
+        [Header("Shake")]
+        public float shakeFrequency = 26f;
+
+        private Camera _camera;
+        private float _currentDistance;
+        private float _targetDistance;
+        private float _currentFov;
+        private bool _sneaking;
 
         private float _shakeDuration;
         private float _shakeTime;
@@ -19,8 +44,41 @@ namespace Game.Presentation
 
         private void Awake()
         {
-            // 固定旋转在 Awake 设一次，之后 Follow 只改位置。
+            _camera = GetComponent<Camera>();
+            _currentDistance = distance;
+            _targetDistance = distance;
+            _currentFov = fieldOfView;
+
+            // 固定俯角/偏航，只有位置和 FOV 会变化。
             transform.rotation = Quaternion.Euler(pitch, yaw, 0f);
+
+            if (_camera != null)
+            {
+                _camera.fieldOfView = fieldOfView;
+            }
+        }
+
+        /// <summary>
+        /// 鼠标滚轮缩放：只改变距离，不改变俯角，保证解谜构图稳定。
+        /// delta 由 InputSystem 的 scroll.y 传入，已在调用方乘灵敏度。
+        /// </summary>
+        public void Zoom(float delta)
+        {
+            if (Mathf.Abs(delta) < 1e-4f)
+            {
+                return;
+            }
+
+            _targetDistance = Mathf.Clamp(_targetDistance + delta, minDistance, maxDistance);
+        }
+
+        /// <summary>
+        /// 潜行时轻微拉近 + 收窄 FOV；不改变任何玩法判定。
+        /// 由 GameLoop 根据 PlayerMotor.State 设置，离开潜行后平滑恢复。
+        /// </summary>
+        public void SetSneaking(bool sneaking)
+        {
+            _sneaking = sneaking;
         }
 
         /// <summary>
@@ -40,12 +98,35 @@ namespace Game.Presentation
         /// </summary>
         public void Follow(Vector3 targetPosition, float deltaTime)
         {
-            if (followSpeed <= 0f || deltaTime <= 0f)
+            if (deltaTime <= 0f)
             {
                 return;
             }
 
+            float desiredDistance = _sneaking
+                ? _targetDistance * sneakDistanceScale
+                : _targetDistance;
+
+            _currentDistance = Mathf.Lerp(
+                _currentDistance,
+                desiredDistance,
+                1f - Mathf.Exp(-zoomSpeed * deltaTime));
+
+            float desiredFov = _sneaking ? sneakFieldOfView : fieldOfView;
+            _currentFov = Mathf.Lerp(
+                _currentFov,
+                desiredFov,
+                1f - Mathf.Exp(-zoomSpeed * deltaTime));
+
+            if (_camera != null)
+            {
+                _camera.fieldOfView = _currentFov;
+            }
+
+            // 从固定俯角/偏航反推相机相对目标的位置；distance 越大，画面越远。
+            Vector3 offset = Quaternion.Euler(pitch, yaw, 0f) * (Vector3.back * _currentDistance);
             Vector3 desired = targetPosition + offset;
+
             float t = 1f - Mathf.Exp(-followSpeed * deltaTime);
             Vector3 next = Vector3.Lerp(transform.position, desired, t);
 
@@ -53,7 +134,8 @@ namespace Game.Presentation
             {
                 _shakeTime = Mathf.Max(0f, _shakeTime - deltaTime);
                 float falloff = _shakeTime / _shakeDuration;
-                next += Random.insideUnitSphere * (_shakeMagnitude * falloff);
+                float wave = Mathf.Sin(Time.time * shakeFrequency) * _shakeMagnitude * falloff;
+                next += new Vector3(wave, -wave * 0.5f, 0f);
             }
 
             transform.position = next;

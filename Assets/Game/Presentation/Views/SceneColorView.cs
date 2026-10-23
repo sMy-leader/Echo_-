@@ -13,9 +13,19 @@ namespace Game.Presentation
         private void Awake()
         {
             Renderer renderer = GetComponent<Renderer>();
-            if (renderer != null)
+            if (renderer == null)
             {
-                renderer.material.color = color;
+                return;
+            }
+
+            Material material = renderer.material;
+            material.color = color;
+
+            // URP Lit 使用 _BaseColor，Material.color 只覆盖 _Color；
+            // 不补这一行时 ProBuilder/URP 材质会保持白色。
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", color);
             }
         }
     }

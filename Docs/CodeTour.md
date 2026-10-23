@@ -1942,6 +1942,7 @@ Window → General → Test Runner → EditMode → Run All
 | `Assets/Game/Bootstrap/Bootstrapper.cs` | `MonoBehaviour` | 启动并加载 `Level_00` | `Start` | Core、Framework、UnityEngine | P0 |
 | `Assets/Game/Bootstrap/Game.Bootstrap.asmdef` | asmdef | AOT 启动器边界 | — | Core、Framework、Infrastructure | P0 |
 | `Assets/Game/Editor/M0SceneBuilder.cs` | `static class` | 幂等生成场景：根节点 + visualRoot + 前向指示器 | `BuildM0Scenes`、`BuildLevel`、`CreateCube` | Presentation、Bootstrap、UnityEditor | P1 |
+| `Assets/Game/Editor/L1SceneBuilder.cs` | `static class` | ProBuilder L1 灰盒：房间/墙/掩体 + 机关/角色 | `BuildL1Scene`、`BuildRoom`、`CreateProBuilderBox` | Presentation、Bootstrap、UnityEditor、Unity.ProBuilder | P1 |
 | `Assets/Game/Editor/Game.Editor.asmdef` | asmdef | Editor-only 工具边界 | — | 全部运行时程序集 | P2 |
 | `Assets/Tests/EditMode/*.cs` | NUnit 测试 | 纯逻辑回归 | 见第 13 章 | Core、Domain、Application | P1 |
 | `Assets/Tests/EditMode/GuardBrainTests.cs` | NUnit 测试 | 守卫视锥/遮挡/状态机 | `GuardBrainTests` | Core、Domain | P1 |

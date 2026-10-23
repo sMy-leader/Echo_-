@@ -99,13 +99,15 @@ namespace Game.Presentation
                 string target = guard.HasVisibleTarget
                     ? guard.VisibleTargetId.ToString()
                     : "-";
+                float distance = (guard.Position - _session.Player.Position).Magnitude;
 
                 GUILayout.Label(
                     string.Format(
-                        "Guard: {0}   Suspicion: {1:0}   Target: {2}",
+                        "Guard: {0}   Suspicion: {1:0}   Target: {2}   Dist: {3:0.00}m",
                         guard.State,
                         guard.Suspicion,
-                        target),
+                        target,
+                        distance),
                     _labelStyle);
             }
 

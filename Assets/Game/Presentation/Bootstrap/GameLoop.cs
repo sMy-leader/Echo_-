@@ -26,6 +26,7 @@ namespace Game.Presentation
         public GuardView guardView;
         public GameObject echoVisualPrefab;
         public Material echoVfxMaterial;
+        public LaserGateView laserGate;
         public GameHud hud;
 
         // EchoPlayback 是引用类型，直接作为字典键，避免额外 Id 映射表。
@@ -45,9 +46,26 @@ namespace Game.Presentation
 
         /// <summary>
         /// 在 Awake 建 Session，保证第一帧 Update 之前已经有检查点。
+        /// 同时提供 Start/Update 兜底：某些场景（例如编辑器新建后直接 Play）
+        /// 可能错过 Awake 时序，幂等初始化可以避免空引用。
         /// </summary>
         private void Awake()
         {
+            EnsureInitialized();
+        }
+
+        private void Start()
+        {
+            EnsureInitialized();
+        }
+
+        private void EnsureInitialized()
+        {
+            if (_session != null)
+            {
+                return;
+            }
+
             _input = new UnityInputService();
 
             //确定玩家生成点
@@ -75,12 +93,19 @@ namespace Game.Presentation
                 Vector3 feet = guardView.transform.position;
 
                 //将 GuardView 的 Transform 位置和旋转、巡逻点信息等转换为 GuardBrain 的数据
+                GuardConfig config = new GuardConfig
+                {
+                    MinApproachDistance = guardView.minApproachDistance,
+                    AttackRange = Mathf.Max(guardView.attackRange, guardView.minApproachDistance + 0.1f),
+                    AttackHitDistanceBuffer = guardView.attackHitDistanceBuffer
+                };
+
                 _guards.Add(new GuardBrain(
                     1,
                     new Vec3(feet.x, feet.y, feet.z),
                     guardView.transform.eulerAngles.y,
                     patrolPoints,
-                    new GuardConfig()));
+                    config));
             }
 
             if (hud != null)
@@ -99,6 +124,25 @@ namespace Game.Presentation
         /// </summary>
         private void Update()
         {
+            if (_session == null)
+            {
+                EnsureInitialized();
+                if (_session == null)
+                {
+                    return;
+                }
+            }
+
+            // 滚轮每帧只消费一次；按方向固定步进，兼容 ±1 与 ±120 两种平台值。
+            if (cameraRig != null)
+            {
+                float scroll = _input.ReadScroll();
+                if (Mathf.Abs(scroll) > 0.01f)
+                {
+                    cameraRig.Zoom(Mathf.Sign(scroll) * cameraRig.zoomStep);
+                }
+            }
+
             // 卡顿时单帧最多累积 0.25s，避免切回窗口后一次补几百个 tick。
             _accumulator += Mathf.Min(Time.unscaledDeltaTime, 0.25f);
 
@@ -127,6 +171,9 @@ namespace Game.Presentation
 
                 // 守卫蓄力结束的 AttackHit 只在这一 tick 为 true。
                 HandleGuardAttacks();
+
+                // 激光命中在守卫之后判定，避免同一 tick 的失败流程重复触发。
+                CheckLaserHits();
 
                 // 掉出场景的兜底：通过统一的失败流程回到检查点。
                 if (_session.Player.Position.Y < -10f)
@@ -173,6 +220,7 @@ namespace Game.Presentation
             if (cameraRig != null)
             {
                 Vec3 playerPosition = _session.Player.Position;
+                cameraRig.SetSneaking(_session.Player.State == EchoState.Sneak);
                 cameraRig.Follow(
                     new Vector3(playerPosition.X, playerPosition.Y, playerPosition.Z),
                     Time.unscaledDeltaTime);
@@ -183,12 +231,57 @@ namespace Game.Presentation
                 pressurePlate.SetActive(_session.Plate.IsActive);
             }
 
+            if (laserGate != null)
+            {
+                laserGate.SetActive(_session.Laser.IsActive);
+            }
+
             if (door != null)
             {
                 door.SetOpen(_session.Plate.IsActive);
             }
 
             SyncEchoViews(alpha);
+        }
+
+        /// <summary>
+        /// 激光命中：只有 IsActive 时才判定。
+        /// - 本体命中 → 统一失败回溯；
+        /// - 残影命中 → 只击杀残影，本体不受影响。
+        /// 命中点取胸口而不是脚底，避免角色站在光束下方被误判/漏判。
+        /// </summary>
+        private void CheckLaserHits()
+        {
+            if (laserGate == null || !_session.Laser.IsActive)
+            {
+                return;
+            }
+
+            Vec3 playerCenter = _session.Player.Position + Vec3.Up * 1.0f;
+            if (laserGate.Intersects(
+                new Vector3(playerCenter.X, playerCenter.Y, playerCenter.Z),
+                0.3f))
+            {
+                TriggerFailure();
+                return;
+            }
+
+            IReadOnlyList<EchoPlayback> echoes = _session.Echoes.Echoes;
+            for (int i = 0; i < echoes.Count; i++)
+            {
+                if (!echoes[i].IsAlive)
+                {
+                    continue;
+                }
+
+                Vec3 echoCenter = echoes[i].CurrentPosition + Vec3.Up * 0.9f;
+                if (laserGate.Intersects(
+                    new Vector3(echoCenter.X, echoCenter.Y, echoCenter.Z),
+                    0.25f))
+                {
+                    _session.Echoes.TryKill(echoes[i].Id);
+                }
+            }
         }
 
         /// <summary>

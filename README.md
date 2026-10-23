@@ -9,6 +9,7 @@
 - 35 个 EditMode 测试通过
 - Windows Mono 构建成功并启动
 - 第一版角色 VFX（悬停光圈 / 能量核心 / 拖尾 / Alert 脉冲 / 残影爆发）已接入
+- L1 ProBuilder 灰盒基础布局已生成（`ECHO/Build L1 Scene`）
 - 验证记录：[Docs/M0-Verification.md](Docs/M0-Verification.md) · [Docs/M1-Verification.md](Docs/M1-Verification.md) · [Docs/M1.5-Verification.md](Docs/M1.5-Verification.md) · [Docs/VFX-Verification.md](Docs/VFX-Verification.md)
 
 ## 文档

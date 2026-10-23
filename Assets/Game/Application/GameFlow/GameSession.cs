@@ -28,6 +28,12 @@ namespace Game.Application
         public EchoManager Echoes { get; } = new EchoManager();
         public ActivationAggregator Plate { get; } = new ActivationAggregator();
 
+        /// <summary>
+        /// 机关门激光的时间窗口。默认 2s 开 / 3s 关；
+        /// 几何命中由表现层用 LaserGateView 判断。
+        /// </summary>
+        public LaserGate Laser { get; } = new LaserGate();
+
         public float RewindCooldown => _rewindCooldown;
 
         /// <summary>
@@ -68,6 +74,7 @@ namespace Game.Application
             InputRecorder.Clear();
             EchoRecorder.Clear();
             Plate.Reset();
+            Laser.Reset();
         }
 
         /// <summary>
@@ -92,6 +99,7 @@ namespace Game.Application
             InputRecorder.Clear();
             EchoRecorder.Clear();
             Plate.Reset();
+            Laser.Reset();
             _rewindCooldown = GameConstants.RewindCooldown;
             return true;
         }
@@ -111,6 +119,7 @@ namespace Game.Application
             EchoRecorder.Record(new EchoFrame(Player.Position, Player.Yaw, Player.State));
 
             Echoes.Tick();
+            Laser.Tick(dt);
         }
 
         /// <summary>

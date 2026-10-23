@@ -98,6 +98,8 @@ M1 守卫感知第一块已完成，见 [M1-Verification.md](M1-Verification.md)
 - [x] M1 守卫感知与状态机第一块（33/33 测试）
 - [x] M1.5 视觉基础（visualRoot / Animator 接口 / 前向指示器）
 - [x] VFX 第一版（悬停光圈 / 能量核心 / 拖尾 / Alert 脉冲 / 残影爆发）
+- [x] L1 灰盒基础布局（ProBuilder 房间/墙/掩体 + 压力板/门/守卫）
+- [ ] L1 两种解法验证 + 激光门
 - [ ] 手动键盘手感验证（WASD/Shift/R 实际操作）
 - [ ] M1 守卫攻击/抓捕 + 激光门 + L1 布局
 - [ ] （可选）安装 Windows IL2CPP 模块并验证 HybridCLR；不阻塞当前 Mono 路线

@@ -1,5 +1,7 @@
 # M0 验证记录
 
+> 这是 M0 阶段的历史记录。M1 守卫感知第一块见 [M1-Verification.md](M1-Verification.md)。
+
 日期：2026-10-20
 Unity：`6000.4.0f1`
 构建后端：Mono（IL2CPP 模块尚未安装）

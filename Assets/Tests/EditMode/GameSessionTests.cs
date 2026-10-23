@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Application;
 using Game.Core;
 using Game.Domain;
@@ -69,6 +70,26 @@ namespace Game.Tests.EditMode
             Assert.AreEqual(0, session.Echoes.Count);
             Assert.IsTrue(session.Player.Position.Approximately(Vec3.Zero));
             Assert.AreEqual(0, session.InputRecorder.Count);
+        }
+
+        [Test]
+        public void CollectPerceptionTargets_IncludesPlayerAndEchoes()
+        {
+            GameSession session = CreateSession();
+            Tick(session, 10);
+            Assert.IsTrue(session.TryRewind());
+            Tick(session, 1);
+
+            List<PerceptionTarget> targets = new List<PerceptionTarget>();
+            session.CollectPerceptionTargets(targets);
+
+            Assert.AreEqual(2, targets.Count);
+            Assert.AreEqual(0, targets[0].Id);
+            Assert.IsTrue(targets[0].IsPlayer);
+            Assert.IsTrue(targets[0].IsAlive);
+            Assert.IsFalse(targets[1].IsPlayer);
+            Assert.Greater(targets[1].Id, 0);
+            Assert.IsTrue(targets[1].IsAlive);
         }
 
         [Test]

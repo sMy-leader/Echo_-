@@ -23,6 +23,7 @@
 6. 核心数据结构
 7. 玩家运动：从输入到位置
 8. 时间轴与残影（核心机制）
+8.10 守卫感知与状态机（M1）
 9. 机关：压力板与门
 10. 表现层：状态如何变成画面
 11. 物理实现
@@ -90,9 +91,9 @@
 
 所以核心不是“重来一次”，而是“和上一次的自己组队”。
 
-### 1.2 M0 当前实现了什么
+### 1.2 当前实现了什么
 
-M0 只做一条最小闭环：
+M0 的最小闭环：
 
 ```text
 Boot → Level_00
@@ -105,7 +106,27 @@ Boot → Level_00
   → 玩家通过门
 ```
 
-M0 **没有**：守卫、激光、声音、存档、菜单、正式美术、热更。
+M1 第一块又加了：
+
+```text
+玩家/残影 → PerceptionTarget
+  → 守卫视锥/遮挡（10Hz）
+  → 警戒值
+  → Patrol / Suspicious / Investigate / Alert / Search / Return
+  → GuardView 颜色/位置 + HUD
+```
+
+M1.5 视觉基础：
+
+```text
+角色根节点 = 脚底
+  └── visualRoot（胶囊/模型）
+        └── Animator / 程序化副动画
+
+守卫额外：forwardIndicator（前向指示器）+ Scene 视图视锥 Gizmo
+```
+
+当前**没有**：守卫攻击/抓捕、激光、听觉、残影死亡、存档、菜单、正式美术、热更。
 
 ### 1.3 三个最重要的概念
 
@@ -151,6 +172,9 @@ GameLoop.Update() ──固定 60Hz──> GameSession.Tick()
                   （用 alpha 插值渲染）
 ```
 
+守卫分支：`Echoes.Tick` 之后 → `GameSession.CollectPerceptionTargets()` →
+`GuardSystem.Tick()` → `GuardView` / `GameHud`。
+
 ---
 
 ## 2. 工程结构与程序集
@@ -164,6 +188,8 @@ Assets/
 │   │   ├── Math/Vec3.cs
 │   │   ├── Input/InputFrame.cs
 │   │   ├── Collision/ICollisionWorld.cs
+│   │   ├── Perception/PerceptionTarget.cs
+│   │   ├── Perception/IVisionWorld.cs
 │   │   ├── Logging/ILogger.cs
 │   │   └── GameConstants.cs
 │   ├── Domain/               # 纯 C# 玩法规则
@@ -173,19 +199,24 @@ Assets/
 │   │   ├── Timeline/EchoFrame.cs
 │   │   ├── Echo/EchoPlayback.cs
 │   │   ├── Echo/EchoManager.cs
+│   │   ├── AI/GuardState.cs
+│   │   ├── AI/GuardConfig.cs
+│   │   ├── AI/GuardBrain.cs
 │   │   ├── Checkpoint/CheckpointService.cs
 │   │   └── Mechanisms/ActivationAggregator.cs
 │   ├── Application/          # 用例编排
-│   │   └── GameFlow/GameSession.cs
+│   │   ├── GameFlow/GameSession.cs
+│   │   └── AI/GuardSystem.cs
 │   ├── Framework/            # AOT Unity 工具
 │   │   └── Logging/UnityLogger.cs
 │   ├── Infrastructure/       # AOT Unity 实现
-│   │   └── Physics/PhysicsCollisionWorld.cs
+│   │   ├── Physics/PhysicsCollisionWorld.cs
+│   │   └── Physics/PhysicsVisionWorld.cs
 │   ├── Presentation/         # 表现层 / 组合根
 │   │   ├── Bootstrap/GameLoop.cs
 │   │   ├── Input/UnityInputService.cs
 │   │   ├── Camera/CameraRig.cs
-│   │   ├── Views/...
+│   │   ├── Views/...（含 GuardView.cs）
 │   │   └── UI/GameHud.cs
 │   ├── Bootstrap/            # AOT 启动器
 │   │   └── Bootstrapper.cs
@@ -317,6 +348,28 @@ Game.Core（纯 C#，noEngineReferences）
 - 为什么所有残影要 `ResetAll` 回 t=0？
 - 为什么结束的残影要下一 tick 才移除？
 
+### 第 3.5 轮：守卫感知与状态机（M1）
+
+读：
+
+1. `PerceptionTarget.cs`
+2. `IVisionWorld.cs` / `PhysicsVisionWorld.cs`
+3. `GuardState.cs` / `GuardConfig.cs`
+4. `GuardBrain.cs`
+5. `GuardSystem.cs`
+6. `GuardView.cs`
+7. `GuardBrainTests.cs`
+8. `Docs/DesignRules.md` 第 6 章
+
+读完能回答：
+
+- 守卫为什么不直接依赖 `PlayerMotor` / `EchoPlayback`？
+- 视锥为什么分成水平角、垂直角、距离、Linecast 四步？
+- 为什么视觉采样 10Hz，但警戒值每 tick 更新？
+- 近身警觉解决什么边界？
+- 为什么 Alert 要停在 2.2m？
+- 守卫为什么在玩家/残影移动之后 tick？
+
 ### 第 4 轮：表现层
 
 读：
@@ -422,9 +475,10 @@ Unity 启动
      b. input = UnityInputService.Sample()
      c. if input 有 Rewind: GameSession.TryRewind()
      d. GameSession.Tick(1/60, input)
-     e. if 玩家掉出场景: GameSession.RestoreCheckpoint()
-     f. activators = CountPlateActivators()
-     g. GameSession.TickPlate(1/60, activators)
+     e. GameSession.CollectPerceptionTargets(...) + GuardSystem.Tick(...)
+     f. if 玩家掉出场景: GameSession.RestoreCheckpoint()
+     g. activators = CountPlateActivators()
+     h. GameSession.TickPlate(1/60, activators)
 3. alpha = accumulator / (1/60)
 4. Render(alpha)
 ```
@@ -439,6 +493,7 @@ Unity 启动
 | 采样输入 | `UnityInputService.Sample()` | 每 tick 采样，边沿触发只消费一次 |
 | 处理回溯 | `TryRewind()` | 回溯后的第一帧要从检查点开始录制 |
 | 逻辑 tick | `GameSession.Tick()` | 移动、录制、残影前进 |
+| 守卫感知 | `CollectPerceptionTargets()` + `GuardSystem.Tick()` | 玩家/残影移动完之后，守卫看到的是本 tick 位置 |
 | 掉出场景 | `RestoreCheckpoint()` | 失败兜底，不生成残影 |
 | 统计压力板 | `CountPlateActivators()` | 玩家/残影都移动完之后再统计 |
 | 机关 tick | `TickPlate()` | 0.3s 释放延迟由聚合器处理 |
@@ -467,6 +522,13 @@ Update
   │    ├─ EchoRecorder.Record(EchoFrame)
   │    └─ Echoes.Tick()
   │
+  ├─ GameSession.CollectPerceptionTargets()
+  ├─ GuardSystem.Tick()
+  │    └─ GuardBrain.Tick()
+  │         ├─ UpdateVision()（10Hz）
+  │         ├─ UpdateSuspicion()（每 tick）
+  │         └─ 当前状态行为
+  │
   ├─ CountPlateActivators()
   │    ├─ plate.Contains(Player.Position)
   │    └─ plate.Contains(echo.CurrentPosition) × N
@@ -476,6 +538,7 @@ Update
   │
   └─ Render(alpha)
        ├─ PlayerView.Apply()
+       ├─ GuardView.Apply()
        ├─ CameraRig.Follow()
        ├─ PressurePlateView.SetActive()
        ├─ DoorView.SetOpen()
@@ -488,6 +551,7 @@ Update
 |---|---|
 | 先记录 `PreviousPosition`，再移动 | 不记录就无法插值，View 会跳变 |
 | 先移动，再统计压力板 | 压力板会慢一 tick，边缘体验差 |
+| 先移动玩家/残影，再 tick 守卫 | 守卫看到的是本 tick 位置，不会“追影子” |
 | 先 `Echoes.Create`，再 `Clear` 录制 | 残影会拷贝到空录制，生成失败 |
 | 先 `ResetAll`，再 `Tick` | 新残影会从旧 cursor 开始，时间轴错位 |
 | 先 `Echoes.Tick`，再渲染 | 残影 Current/Previous 才是本帧的数据 |
@@ -601,6 +665,37 @@ M0 只存：
 | `RewindInvulnerability` | 0.3 | 回溯后无敌（预留） |
 
 ---
+
+### 6.7 `PerceptionTarget` / `IVisionWorld`
+
+文件：`Game.Core/Perception/PerceptionTarget.cs`、`IVisionWorld.cs`
+
+- `PerceptionTarget` 是守卫看到的最小目标：Id、脚底位置、是否本体、是否存活。
+- `IVisionWorld.HasLineOfSight(from, to)` 只回答“有没有遮挡”，由 Infrastructure 的 `PhysicsVisionWorld` 用 `Physics.Linecast` 实现。
+- 这样 Domain 不需要知道 LayerMask/Physics，测试可以注入 `FakeVisionWorld`。
+
+### 6.8 `GuardConfig`
+
+文件：`Game.Domain/AI/GuardConfig.cs`
+
+| 参数 | 值 | 含义 |
+|---|---|---|
+| `ViewDistance` | 8 | 视距 m |
+| `ViewHorizontalAngle` | 60 | 水平总视角（半角 30°） |
+| `ViewVerticalAngle` | 40 | 垂直总视角（半角 20°） |
+| `VisionSampleInterval` | 0.1 | 视觉采样 10Hz |
+| `CloseAwarenessDistance` | 2 | 近身警觉半径 m |
+| `MinApproachDistance` | 1.2 | Alert 追击保持距离 m |
+| `SuspicionRisePerSecond` | 40 | 视觉内警戒值上升 |
+| `SuspicionDecayPerSecond` | 15 | 脱离视觉下降 |
+| `SuspicionInvestigateThreshold` | 60 | 转 Investigate |
+| `SuspicionAlertThreshold` | 100 | 转 Alert |
+| `PatrolSpeed` | 1.6 | 巡逻 m/s |
+| `InvestigateSpeed` | 2.2 | 调查 m/s |
+| `AlertSpeed` | 3.6 | 追击 m/s |
+| `ReturnSpeed` | 1.8 | 返回 m/s |
+| `SearchDurationSeconds` | 8 | 搜索时长 |
+| `AlertLostSightSeconds` | 6 | 丢失目标转 Search |
 
 ## 7. 玩家运动：从输入到位置
 
@@ -879,6 +974,211 @@ if cursor >= frames.Length: IsFinished = true
 
 ---
 
+## 8.10 守卫感知与状态机（M1）
+
+> 代码：`Game.Core/Perception/*`、`Game.Domain/AI/*`、`Game.Application/AI/GuardSystem.cs`、`Game.Infrastructure/Physics/PhysicsVisionWorld.cs`、`Game.Presentation/Views/GuardView.cs`
+>
+> 规则：`Docs/DesignRules.md` 第 6 章。
+
+### 8.10.1 这一块解决什么问题
+
+M1 第一块不是“完整守卫 AI”，而是把守卫的**感知 → 警戒值 → 状态机**骨架跑通：
+
+```text
+玩家/残影位置
+  → CollectPerceptionTargets()
+  → GuardSystem.Tick()
+  → GuardBrain.UpdateVision()（10Hz）
+  → Suspicion（每 tick）
+  → Patrol / Suspicious / Investigate / Alert / Search / Return
+  → GuardView 颜色/位置
+```
+
+它暂时不包含：攻击/抓捕、听觉、残影死亡、寻路/碰撞、动画/音效。
+
+### 8.10.2 为什么把“目标”抽成 PerceptionTarget
+
+`GuardBrain` 不应该直接依赖 `PlayerMotor` 或 `EchoPlayback`：
+
+- 本体和残影对守卫来说都是“目标”；
+- 未来可以加可交互 NPC、噪音源；
+- 测试里可以直接构造目标，不需要跑整个 `GameSession`。
+
+`PerceptionTarget` 只包含：
+
+```text
+Id         目标 Id（玩家固定 0，残影用 EchoPlayback.Id）
+Position   脚底中心
+IsPlayer   是否本体（后续可用于优先级/叙事）
+IsAlive    是否存活
+```
+
+`GameSession.CollectPerceptionTargets(List<PerceptionTarget>)` 负责把玩家 + 残影整理成列表，复用 List 避免每 tick 分配。
+
+### 8.10.3 视线查询为什么走接口
+
+`GuardBrain` 是纯 C#，不能直接调用 `Physics.Linecast`。所以：
+
+```text
+Game.Core.IVisionWorld
+  ↑
+Game.Infrastructure.PhysicsVisionWorld（Unity Physics 实现）
+```
+
+`GuardBrain` 只问：“眼睛到目标胸口有没有遮挡？”
+测试里注入 `FakeVisionWorld`，可以精确控制“有墙/没墙”。
+
+### 8.10.4 视觉判定顺序
+
+`GuardBrain.UpdateVision()` 每 0.1s 执行一次（10Hz），顺序是：
+
+1. 目标是否存活；
+2. 水平距离是否 ≤ 8m；
+3. 近身警觉：距离 ≤ 2m 时跳过视锥角度判断；
+4. 水平角是否 ≤ 30°（总视角 60° 的一半）；
+5. 垂直角是否 ≤ 20°（总视角 40° 的一半）；
+6. `IVisionWorld.HasLineOfSight(eye, aimPoint)` 是否无遮挡；
+7. 选最近的有效目标，更新 `LastKnownPosition` / `LastKnownTargetId`。
+
+为什么是 10Hz：
+
+- `Linecast` 比纯数学贵；
+- 0.1s 的感知延迟在解谜游戏里可接受；
+- 警戒值仍然每 tick 累积，手感不受影响。
+
+为什么加“近身警觉”：
+
+- 守卫追到玩家身边时，目标在脚下，垂直角可能超出 20°；
+- 如果没有近身警觉，会出现“守卫贴着玩家却看不见”的边界；
+- 2m 内跳过视锥角度，但仍要求 `Linecast` 无遮挡。
+
+### 8.10.5 警戒值与状态迁移
+
+```text
+Patrol
+  │ 看到目标
+  ▼
+Suspicious
+  ├─ 警戒 >= 60  → Investigate
+  ├─ 警戒 >= 100 → Alert
+  └─ 警戒降到 0  → Patrol
+
+Investigate
+  ├─ 警戒 >= 100 → Alert
+  └─ 到达最后已知点 → Search
+
+Alert
+  ├─ 看到目标：保持追击
+  └─ 丢失目标 6s → Search
+
+Search
+  ├─ 警戒 >= 100 → Alert
+  └─ 搜索 8s → Return
+
+Return
+  ├─ 看到目标 → Suspicious
+  └─ 到达最近巡逻点 → Patrol
+```
+
+| 状态 | 行为 | 速度/时间 |
+|---|---|---|
+| Patrol | 沿路点巡逻，到达后停留 2s | 1.6 m/s |
+| Suspicious | 停下，面向目标/最后已知点 | — |
+| Investigate | 走向最后已知点 | 2.2 m/s |
+| Alert | 追击最后已知点，保持 2.2m | 3.6 m/s |
+| Search | 原地转头搜索 | 90°/s，8s |
+| Return | 回到最近巡逻点 | 1.8 m/s |
+
+### 8.10.6 为什么 Alert 要停 2.2m
+
+如果守卫直接走到目标脚底：
+
+- 两个胶囊会重叠，画面难看；
+- 近身警觉会一直触发，状态反而更混乱；
+- 后续加攻击时没有“攻击距离”的概念。
+
+`MinApproachDistance = 2.2m` 让守卫在攻击距离外停住并面向目标，同时避免两个约 2m 高的模型视觉穿插，为 M1 后续的攻击/抓捕留接口。
+
+### 8.10.7 Tick 顺序
+
+```text
+GameLoop.Update()
+  → GameSession.Tick()                   // 玩家/残影移动
+  → GameSession.CollectPerceptionTargets()
+  → GuardSystem.Tick()
+      → GuardBrain.Tick()
+          → UpdateVision()（10Hz）
+          → UpdateSuspicion()（每 tick）
+          → 当前状态行为
+  → TickPlate()
+  → Render()
+      → GuardView.Apply()
+```
+
+为什么守卫在玩家/残影移动之后：
+
+- 守卫看到的是本 tick 的目标位置；
+- 如果先 tick 守卫，会慢一 tick，视觉上“追影子”。
+
+### 8.10.8 场景与调试
+
+`M0SceneBuilder` 生成：
+
+- `Guard` 胶囊（无 Collider，避免挡视线/胶囊扫掠）；
+- `GuardPatrol_A/B/C/D` 四个空 Transform；
+- `GuardView.patrolPoints` 绑定这四个点；
+- `GameLoop.guardView` 绑定守卫视图。
+
+HUD 显示：
+
+```text
+Guard: Alert   Suspicion: 100   Target: 0
+```
+
+颜色：
+
+- Patrol：蓝灰
+- Suspicious：黄
+- Investigate：橙
+- Alert：红
+- Search：紫
+- Return：绿
+
+### 8.10.9 当前边界
+
+- **直线移动**：GuardBrain 目前直接 `MoveTowards`，不处理墙；L1 布局时替换为胶囊碰撞/寻路。
+- **没有攻击**：Alert 只追到 2.2m 并面向目标，不造成失败。
+- **没有听觉**：M3 再接声音事件。
+- **没有残影死亡**：残影目前全部 `IsAlive = true`。
+- **没有动画**：GuardView 只做位置/朝向插值和颜色。
+
+### 8.10.10 扩展点
+
+| 想加 | 改哪里 |
+|---|---|
+| 听觉 | `PerceptionTarget` 增加 `Noise` 类型；`GuardBrain` 增加听觉通道 |
+| 攻击/抓捕 | `GuardBrain` 增加 `AttackRange/AttackCooldown`；`GameSession` 增加失败处理 |
+| 残影死亡 | `EchoPlayback` 增加 `IsAlive`；`CollectPerceptionTargets` 传真实存活状态 |
+| 双守卫 | `GuardSystem.Add` 多个 `GuardBrain`；HUD 显示多个状态 |
+| 寻路 | `GuardBrain.MoveTowards` 改为 `IGuardNavigation`/NavMesh 路径点 |
+| 配置 | `GuardConfig` 由 ScriptableObject/关卡配置注入 |
+
+### 8.10.11 测试
+
+`GuardBrainTests` 覆盖：
+
+- Patrol 向路点移动；
+- 视锥内目标 → Suspicious；
+- 背后远距离目标不可见；
+- 背后近距离目标因近身警觉可见；
+- 有墙遮挡不可见；
+- 警戒 60 → Investigate；
+- 警戒 100 → Alert；
+- Alert 丢失目标 6s → Search；
+- Search 8s → Return。
+
+当前测试总数：**33/33 通过**。
+
 ## 9. 机关：压力板与门
 
 ### 9.1 数据流
@@ -953,8 +1253,8 @@ ActivationAggregator.Tick(dt, count)
 `GameLoop` 负责：
 
 - 创建 `UnityInputService`；
-- 创建 `PhysicsCollisionWorld`；
-- 创建 `GameSession`；
+- 创建 `PhysicsCollisionWorld` / `PhysicsVisionWorld`；
+- 创建 `GameSession` / `GuardSystem`；
 - 捕获初始检查点；
 - 驱动固定 tick；
 - 把状态同步给 View。
@@ -977,12 +1277,35 @@ ActivationAggregator.Tick(dt, count)
 
 当前是直接轮询设备，后续可以换成 `InputActionAsset`，只改这个类。
 
-### 10.3 `PlayerView` / `EchoView`
+### 10.3 `PlayerView` / `EchoView` / `GuardView`：逻辑胶囊 vs 视觉根节点
 
-- `PlayerView.Apply(player, alpha)`：`Lerp(PreviousPosition, Position, alpha)`；
-- `EchoView.Apply(alpha)`：`Lerp(PreviousPosition, CurrentPosition, alpha)`；
-- 逻辑位置是脚底，显示时 `+ capsuleHalfHeight`；
-- 用 `LerpAngle` 处理朝向环绕。
+这三个 View 现在遵循同一个约定：
+
+```text
+角色根节点 Transform = 脚底中心（和 Domain Position 一致）
+  └── visualRoot（模型/胶囊，pivot 在脚底）
+        └── Animator / SkinnedMeshRenderer / 程序化副动画
+```
+
+- `PlayerView.Apply(player, alpha)`：根节点放到脚底，visualRoot 做模型/胶囊显示；
+- `EchoView.Apply(alpha)`：同上，visualRoot 做幽灵浮动/倾斜；
+- `GuardView.Apply(guard, alpha)`：同上，另有 `forwardIndicator` 表示朝向；
+- 有 `Animator` 时驱动参数；没有时走程序化浮动/倾斜 fallback；
+- 模型不挂 Collider，碰撞仍由逻辑胶囊负责。
+
+为什么根节点放脚底：
+
+- 和 `PlayerMotor.Position` / `GuardBrain.Position` 完全一致；
+- 换模型时不需要在 View 里写“+ capsuleHalfHeight”这种胶囊特化代码；
+- 模型 pivot 在脚底时，`visualRoot.localPosition = (0,0,0)` 即可。
+
+换模型时：
+
+1. 把模型作为 `visualRoot` 的子物体；
+2. 模型 pivot 对齐脚底；如果模型 pivot 在胯部，给 `visualRoot` 加偏移；
+3. 模型不要挂 Collider；
+4. 逻辑胶囊尺寸在 `GameConstants` / `GuardConfig` 里调；
+5. Animator 只驱动视觉，Root Motion 关闭。
 
 ### 10.4 `CameraRig`
 
@@ -1007,21 +1330,72 @@ for each view in _echoViews:
 
 `CreateEchoView`：
 
-- `GameObject.CreatePrimitive(Capsule)`；
-- 立刻禁用并销毁 CapsuleCollider；
-- 加 `EchoView`，绑定 `EchoPlayback`。
+- 创建根节点 `Echo_Id`（脚底）；
+- 如果 `GameLoop.echoVisualPrefab` 已赋值：`Instantiate(prefab, echoRoot.transform, false)`；
+- 否则创建 Capsule 子节点作为灰盒 fallback；
+- 移除视觉体上的所有 Collider；
+- 加 `EchoView`，调用 `Initialize(visualRoot, animator)`，绑定 `EchoPlayback`。
 
 为什么销毁 Collider：
 
 - 残影只做视觉/机关判定，不参与物理；
 - 有 Collider 会挡住本体的胶囊扫掠。
 
-### 10.6 `GameHud`
+为什么不用 `FindWithTag`：
+
+- Prefab 是资产，不在场景里，`FindWithTag` 找不到它；
+- 就算场景里有同 Tag 对象，多个残影会抢同一个对象；
+- 正确做法是序列化 Prefab 引用 + `Instantiate`；后续接 YooAsset 时换成 `IAssetService`。
+
+后续换幽灵 Prefab 时，只替换 `CreateEchoView` 里的 Capsule 子节点。
+
+### 10.6 守卫视图与朝向
+
+`GuardView` 除了位置/朝向/颜色，还负责：
+
+- `forwardIndicator`：子物体放在 local `+Z`，随根节点旋转，解决胶囊从任何方向看都一样的问题；
+- `OnDrawGizmosSelected`：Scene 视图画眼睛位置、前向线、视锥边界；
+- 状态颜色：Patrol 蓝灰、Suspicious 黄、Alert 红、Search 紫、Return 绿；
+- 有 Animator 时驱动 `Speed/State/Alert` 参数；没有时做轻微浮动/前倾。
+
+正式模型到位后，前向指示器可以保留为“单眼/面罩/胸甲发光条”，也可以关掉，由模型自身朝向表达。
+
+### 10.7 `GameHud`
 
 - `OnGUI` 调试版；
 - 显示残影数、录制时长、回溯可用、压力板、冷却、是否落地、位置；
 - 不修改任何玩法状态；
 - 后续换 UGUI/UI Toolkit 时，保留 `Bind(GameSession)` 的绑定方式。
+
+### 10.8 `CharacterVfx`
+
+文件：`Assets/Game/Presentation/Views/CharacterVfx.cs`
+
+运行时生成角色通用 VFX：
+
+| VFX | 实现 | 触发 |
+|---|---|---|
+| Hover | 脚底 ParticleSystem 环形粒子 | 常驻 |
+| Core | 胸口 ParticleSystem 球形粒子 | 常驻 |
+| Trail | TrailRenderer | 移动时 `SetMoving(true)` |
+| AlertPulse | 脚底红色扩散环 | 守卫进入 Alert |
+| Burst | 球形爆发粒子 | 残影生成/消散 |
+
+接入：
+
+- `PlayerView.Apply` → `vfx.SetMoving(moving)`；
+- `GuardView.Apply` → `SetMoving` + `SetAlert`；
+- `EchoView.Apply` → `SetMoving` + 首次 `PlaySpawnBurst`；
+- `M0SceneBuilder` 给 Player/Guard 根节点加 `CharacterVfx`；
+- `GameLoop.CreateEchoView` 给运行时残影加 `CharacterVfx`；
+- 使用 `Assets/Game/Art/VFX/M_Vfx_Additive.mat`（URP Particles/Unlit Additive）。
+
+边界：
+
+- 只做表现，不参与玩法；
+- 当前是运行时 ParticleSystem 占位，不是最终 VFX Graph；
+- 材质/尺寸/频率在 `CharacterVfx` 的 SerializeField 里调；
+- 残影“消散爆发”还需要延迟销毁才能完整播放。
 
 ---
 
@@ -1129,8 +1503,9 @@ ECHO → Build M0 Scenes
 | `ActivationAggregatorTests` | OR 激活、0.3s 释放、Reset | 机关状态可重算 |
 | `PlayerMotorTests` | 前进移动、传送 | 运动学基本行为 |
 | `GameSessionTests` | 回溯条件、检查点恢复、冷却 | 回溯顺序正确 |
+| `GuardBrainTests` | 视锥、遮挡、近身警觉、警戒值、状态迁移 | 感知→状态机规则正确 |
 
-当前结果：**23/23 通过**。
+当前结果：**33/33 通过**。
 
 ### 13.2 测试怎么隔离 Unity
 
@@ -1138,6 +1513,11 @@ ECHO → Build M0 Scenes
 
 - `CapsuleCast` 永远不命中；
 - `CheckGround` 永远返回 true。
+
+`GuardBrainTests` 使用 `FakeVisionWorld`：
+
+- 可以精确控制“有墙/没墙”；
+- 不依赖场景/Physics.Linecast。
 
 这样测试只验证 Domain 逻辑，不依赖场景/物理。
 
@@ -1181,7 +1561,8 @@ ECHO → Build M0 Scenes
 
 - 后端：**Mono2x**
 - 产物：`Builds/M0/ECHO.exe`
-- 验证：23/23 EditMode 测试；构建成功；启动日志 `Bootstrapper: loading scene Level_00`
+- 验证：33/33 EditMode 测试；构建成功；启动日志 `Bootstrapper: loading scene Level_00`
+- 构建大小：155,833,300 bytes
 - IL2CPP/HybridCLR：可选，当前未启用
 
 ### 14.4 Play Mode 检查清单
@@ -1190,6 +1571,7 @@ ECHO → Build M0 Scenes
 - [ ] WASD 移动
 - [ ] Shift 潜行（速度变慢）
 - [ ] 踩压力板 → 门升起
+- [ ] 守卫看到玩家 → Suspicion 上升 → Investigate/Alert
 - [ ] 按 R → 回检查点，残影出现
 - [ ] 残影踩板 → 门保持开启
 - [ ] 连续回溯 → 最多 3 个残影
@@ -1231,15 +1613,31 @@ ECHO → Build M0 Scenes
 
 - `GameConstants.PlayerRadius`
 - `GameConstants.PlayerHeight`
-- `M0SceneBuilder` 里 Player 的 `localScale`
-- `PlayerView.capsuleHalfHeight`
-- `EchoView.capsuleHalfHeight`
+- `M0SceneBuilder` 里 Player/Guard 的 visualRoot 子节点 `localScale` / `localPosition`
+- `PlayerView.visualRoot` / `EchoView.visualRoot` / `GuardView.visualRoot`
 
 注意：
 
 - 视觉胶囊默认 2m 高、1m 直径；
 - scale `(0.6, 0.9, 0.6)` 对应半径 0.3、总高 1.8；
-- 改尺寸要同时改视觉和逻辑，否则会“看起来穿墙/悬空”。
+- 改尺寸要同时改视觉和逻辑，否则会“看起来穿墙/悬空”；
+- 正式模型不需要和胶囊完全一致，但视觉误差不要太大。
+
+### 15.2.1 换角色模型
+
+1. 把模型导入 Unity，pivot 对齐脚底；
+2. 模型作为角色根节点下的 `visualRoot` 子物体；
+3. 模型不要挂 Collider；
+4. `PlayerView.visualRoot` / `GuardView.visualRoot` / `EchoView.visualRoot` 指向模型；
+5. 有 Animator 就赋给 `animator` 字段，Root Motion 关闭；
+6. 逻辑胶囊尺寸按模型在 `GameConstants` / `GuardConfig` 里调；
+7. 在 `M0SceneBuilder` 里改为实例化 Prefab（或先手工替换场景，再逐步迁到 Prefab）。
+
+守卫额外：
+
+- `forwardIndicator` 指向模型前方的单眼/面罩/发光条；
+- 如果模型本身朝向足够清楚，可以把 `forwardIndicator` 留空；
+- `OnDrawGizmosSelected` 仍然可以调试视锥。
 
 ### 15.3 改残影数量/录制时长
 
@@ -1263,24 +1661,39 @@ ECHO → Build M0 Scenes
 7. 加 EditMode 测试；
 8. 更新 `Docs/DesignRules.md` 和本文。
 
-### 15.5 加守卫（M1）
+### 15.5 守卫（M1 第一块已实现）
 
-预计新增：
+当前文件：
 
-- `Game.Core/Perception/IGuardSenses.cs` 或类似接口；
-- `Game.Domain/AI/GuardBrain.cs`、`GuardState.cs`；
-- `Game.Infrastructure/Physics/GuardVision.cs`（视锥/Linecast）；
-- `Game.Presentation/Views/GuardView.cs`；
-- `GameLoop` 增加守卫 Tick/View；
-- `M0SceneBuilder` 增加守卫对象；
-- EditMode 测试感知/状态机；
-- 更新本文的“一帧生命周期”和“代码地图”。
+- `Game.Core/Perception/PerceptionTarget.cs`、`IVisionWorld.cs`
+- `Game.Domain/AI/GuardState.cs`、`GuardConfig.cs`、`GuardBrain.cs`
+- `Game.Application/AI/GuardSystem.cs`
+- `Game.Infrastructure/Physics/PhysicsVisionWorld.cs`
+- `Game.Presentation/Views/GuardView.cs`
+- `GameSession.CollectPerceptionTargets()`、`GameLoop` 守卫 Tick/View、`M0SceneBuilder` 守卫对象
+- `Assets/Tests/EditMode/GuardBrainTests.cs`
+
+改参数：
+
+- 视距/视角/10Hz/警戒值/速度/搜索时间 → `GuardConfig`
+- 巡逻点 → 场景里的 `GuardPatrol_A/B/C/D`
+- 状态颜色 → `GuardView` 的 SerializeField
+- 测试期望 → `GuardBrainTests`
+
+扩展：
+
+- 攻击/抓捕：`GuardBrain` 增加 AttackRange/Cooldown，`GameSession` 处理失败；
+- 听觉：`PerceptionTarget` 增加噪音类型，`GuardBrain` 增加听觉通道；
+- 残影死亡：`EchoPlayback` 增加 `IsAlive`，`CollectPerceptionTargets` 传真实存活状态；
+- 寻路：把 `GuardBrain.MoveTowards` 换成 `IGuardNavigation`/NavMesh 路径点；
+- 双守卫：`GuardSystem.Add` 多个 GuardBrain，HUD 显示多个状态。
 
 关键原则：
 
 - 守卫只对“当前时间线”的目标反应；
 - 残影和本体都是可感知目标；
-- 感知频率按 tick 对齐（例如每 6 tick 一次），不要用墙钟。
+- 感知频率按 tick 对齐（10Hz = 每 6 tick），不要用墙钟；
+- 守卫在玩家/残影移动之后 tick。
 
 ### 15.6 加检查点触发区
 
@@ -1312,7 +1725,20 @@ ECHO → Build M0 Scenes
 - 先从 `Main / Level_00 / Config` 三个包开始；
 - 更新 `Docs/Environment.md` 的包版本/构建说明。
 
-### 15.10 启用 HybridCLR（可选，不推荐现在做）
+### 15.10 调 VFX
+
+- 参数集中在 `CharacterVfx`：
+  - `primaryColor`、`hoverRadius`、`hoverY`、`coreHeight`、`trailTime`、`trailWidth`；
+  - `enableHover/core/trail/alertPulse` 可单独关闭。
+- 材质：`Assets/Game/Art/VFX/M_Vfx_Additive.mat`；
+- 替换材质/颜色时，先确认 URP Particles/Unlit 的 Surface/Blend 设置；
+- 正式版建议：
+  - Echo 专用 Ghost Shader（Fresnel + dissolve）；
+  - VFX Graph 做回溯/残影消散；
+  - 粒子对象池；
+  - 用 Frame Debugger 看 Overdraw。
+
+### 15.11 启用 HybridCLR（可选，不推荐现在做）
 
 前提：
 
@@ -1392,14 +1818,17 @@ Window → General → Test Runner → EditMode → Run All
 
 ### M1：守卫 + 激光 + L1
 
-新增后要更新：
+已完成第一块（守卫感知/状态机），后续新增要更新：
 
-- 第 2 章程序集图（可能新增 `Perception`/`AI` 文件夹）；
-- 第 5 章一帧生命周期（守卫感知/攻击 Tick）；
+- 第 2 章程序集图（已新增 `Perception`/`AI` 文件夹；激光/关卡再更新）；
+- 第 5 章一帧生命周期（守卫已加入；攻击/激光再补）；
+- 第 8.10 章守卫（感知/状态机已写；攻击/听觉再补）；
 - 第 9 章机关（激光门）；
-- 附录 A（GuardBrain/GuardView/GuardVision）；
-- 第 13 章测试地图（感知/状态机）；
-- 第 15 章修改指南（加守卫）。
+- 附录 A（已新增 GuardBrain/GuardView/PhysicsVisionWorld）；
+- 第 13 章测试地图（已新增 GuardBrainTests）；
+- 第 15 章修改指南（已更新守卫；激光/攻击再补）。
+
+待做：守卫攻击/抓捕、激光门、L1 布局、寻路/碰撞。
 
 ### M2：时序 + 升降台 + 3 残影
 
@@ -1442,6 +1871,8 @@ Window → General → Test Runner → EditMode → Run All
 | `Assets/Game/Core/Math/Vec3.cs` | `readonly struct` | 纯 C# 向量数学 | `Normalized`、`Dot`、`Lerp`、`ProjectOnPlane`、`Approximately` | `System` | P1 |
 | `Assets/Game/Core/Input/InputFrame.cs` | `readonly struct` + `enum` | 逻辑输入帧，4 字节 | `FromAxes`、`QuantizeAxis`、`Has`、`InputButtons` | `System` | P0 |
 | `Assets/Game/Core/Collision/ICollisionWorld.cs` | `interface` + `struct` | 胶囊扫掠/地面检测契约 | `CapsuleCast`、`CheckGround`、`CapsuleCastResult` | 无 | P1 |
+| `Assets/Game/Core/Perception/PerceptionTarget.cs` | `readonly struct` | 守卫感知目标 | `Id`、`Position`、`IsPlayer`、`IsAlive` | Core | P1 |
+| `Assets/Game/Core/Perception/IVisionWorld.cs` | `interface` | 视线遮挡契约 | `HasLineOfSight` | 无 | P1 |
 | `Assets/Game/Core/Logging/ILogger.cs` | `interface` | 日志契约 | `Info`、`Warning`、`Error` | 无 | P2 |
 | `Assets/Game/Core/Game.Core.asmdef` | asmdef | 纯 C# 程序集边界 | `noEngineReferences: true` | 无 | P0 |
 
@@ -1455,6 +1886,9 @@ Window → General → Test Runner → EditMode → Run All
 | `Assets/Game/Domain/Timeline/EchoFrame.cs` | `readonly struct` + `enum` | 16 字节残影帧 | `Position`、`Yaw`、`State`、`EchoState` | Core | P1 |
 | `Assets/Game/Domain/Echo/EchoPlayback.cs` | `sealed class` | 单残影轨迹回放 | `Tick`、`Reset`、`Previous`、`Current`、`IsFinished` | Core、EchoRecorder | P0 |
 | `Assets/Game/Domain/Echo/EchoManager.cs` | `sealed class` | 残影列表/3 个 FIFO | `Create`、`Tick`、`ResetAll`、`Clear`、`Contains` | Core、EchoPlayback | P0 |
+| `Assets/Game/Domain/AI/GuardState.cs` | `enum` | 守卫状态 | `Patrol`、`Suspicious`、`Investigate`、`Alert`、`Search`、`Return` | 无 | P1 |
+| `Assets/Game/Domain/AI/GuardConfig.cs` | `sealed class` | 守卫参数 | 视距/视角/警戒值/速度/时间 | 无 | P1 |
+| `Assets/Game/Domain/AI/GuardBrain.cs` | `sealed class` | 守卫感知+状态机 | `Tick`、`UpdateVision`、`UpdateSuspicion`、`MoveTowards` | Core、GuardConfig、GuardState | P0 |
 | `Assets/Game/Domain/Checkpoint/CheckpointService.cs` | `sealed class` + `struct` | 检查点快照/恢复 | `Capture`、`Restore`、`CheckpointSnapshot` | Core、PlayerMotor | P1 |
 | `Assets/Game/Domain/Mechanisms/ActivationAggregator.cs` | `sealed class` + `enum` | 机关激活聚合 | `Tick`、`Reset`、`Mode`、`ReleaseDelay` | Core | P1 |
 | `Assets/Game/Domain/Game.Domain.asmdef` | asmdef | 纯 C# 玩法边界 | `noEngineReferences: true` | Core | P0 |
@@ -1463,7 +1897,8 @@ Window → General → Test Runner → EditMode → Run All
 
 | 文件 | 类型 | 职责 | 关键成员 | 依赖 | 优先级 |
 |---|---|---|---|---|---|
-| `Assets/Game/Application/GameFlow/GameSession.cs` | `sealed class` | M0 用例编排：移动/录制/回溯/机关 | `Tick`、`TickPlate`、`TryRewind`、`CaptureCheckpoint`、`RestoreCheckpoint` | Core、Domain | P0 |
+| `Assets/Game/Application/GameFlow/GameSession.cs` | `sealed class` | M0 用例编排：移动/录制/回溯/机关/目标收集 | `Tick`、`TickPlate`、`TryRewind`、`CollectPerceptionTargets` | Core、Domain | P0 |
+| `Assets/Game/Application/AI/GuardSystem.cs` | `sealed class` | 多守卫 tick 编排 | `Add`、`Tick`、`Guards` | Core、Domain | P1 |
 | `Assets/Game/Application/Game.Application.asmdef` | asmdef | 纯 C# 应用层 | `noEngineReferences: true` | Core、Domain | P0 |
 
 ### A.4 Framework / Infrastructure（AOT Unity 实现）
@@ -1472,6 +1907,7 @@ Window → General → Test Runner → EditMode → Run All
 |---|---|---|---|---|---|
 | `Assets/Game/Framework/Logging/UnityLogger.cs` | `sealed class` | `Game.Core.ILogger` 的 Unity 实现 | `Info`、`Warning`、`Error` | Core、UnityEngine | P2 |
 | `Assets/Game/Infrastructure/Physics/PhysicsCollisionWorld.cs` | `sealed class` | `ICollisionWorld` 的 Unity Physics 实现 | `CapsuleCast`、`CheckGround` | Core、UnityEngine | P1 |
+| `Assets/Game/Infrastructure/Physics/PhysicsVisionWorld.cs` | `sealed class` | `IVisionWorld` 的 Unity Linecast 实现 | `HasLineOfSight` | Core、UnityEngine | P1 |
 | `Assets/Game/Framework/Game.Framework.asmdef` | asmdef | AOT Unity 工具层 | — | Core | P2 |
 | `Assets/Game/Infrastructure/Game.Infrastructure.asmdef` | asmdef | AOT Unity 实现层 | — | Core、Framework | P1 |
 
@@ -1479,11 +1915,13 @@ Window → General → Test Runner → EditMode → Run All
 
 | 文件 | 类型 | 职责 | 关键成员 | 依赖 | 优先级 |
 |---|---|---|---|---|---|
-| `Assets/Game/Presentation/Bootstrap/GameLoop.cs` | `MonoBehaviour` | 组合根 + 固定 tick + 视图同步 | `Awake`、`Update`、`Render`、`CountPlateActivators`、`SyncEchoViews` | Application、Domain、Infrastructure、所有 View | P0 |
+| `Assets/Game/Presentation/Bootstrap/GameLoop.cs` | `MonoBehaviour` | 组合根 + 固定 tick + 视图同步 + 残影 Prefab 实例化 | `Awake`、`Update`、`Render`、`CountPlateActivators`、`SyncEchoViews`、`echoVisualPrefab` | Application、Domain、Infrastructure、所有 View | P0 |
 | `Assets/Game/Presentation/Input/UnityInputService.cs` | `sealed class` | 键鼠/手柄 → `InputFrame` | `Sample` | Core、InputSystem | P1 |
 | `Assets/Game/Presentation/Camera/CameraRig.cs` | `MonoBehaviour` | 固定视角 + 平滑跟随 | `Follow` | UnityEngine | P2 |
-| `Assets/Game/Presentation/Views/PlayerView.cs` | `MonoBehaviour` | 玩家胶囊插值/颜色 | `Apply` | Domain、UnityEngine | P1 |
-| `Assets/Game/Presentation/Views/EchoView.cs` | `MonoBehaviour` | 残影胶囊插值/颜色 | `Bind`、`Apply` | Domain、UnityEngine | P1 |
+| `Assets/Game/Presentation/Views/PlayerView.cs` | `MonoBehaviour` | 视觉根节点/Animator/程序化副动画 | `Apply`、`visualRoot`、`animator` | Domain、UnityEngine | P1 |
+| `Assets/Game/Presentation/Views/EchoView.cs` | `MonoBehaviour` | 残影视觉根节点/幽灵浮动 | `Initialize`、`Bind`、`Apply` | Domain、UnityEngine | P1 |
+| `Assets/Game/Presentation/Views/GuardView.cs` | `MonoBehaviour` | 守卫视觉根节点/前向指示器/状态颜色 | `CollectPatrolPositions`、`Apply`、`forwardIndicator` | Domain、UnityEngine | P1 |
+| `Assets/Game/Presentation/Views/CharacterVfx.cs` | `MonoBehaviour` | 悬停/核心/拖尾/Alert/残影爆发 | `SetMoving`、`SetAlert`、`PlaySpawnBurst` | UnityEngine | P1 |
 | `Assets/Game/Presentation/Views/PressurePlateView.cs` | `MonoBehaviour` | 压力板几何包含/颜色 | `Contains`、`SetActive` | Core、UnityEngine | P1 |
 | `Assets/Game/Presentation/Views/DoorView.cs` | `MonoBehaviour` | 门开关表现 | `SetOpen` | UnityEngine | P2 |
 | `Assets/Game/Presentation/Views/SceneColorView.cs` | `MonoBehaviour` | 灰盒通用上色 | `Awake` | UnityEngine | P3 |
@@ -1496,9 +1934,10 @@ Window → General → Test Runner → EditMode → Run All
 |---|---|---|---|---|---|
 | `Assets/Game/Bootstrap/Bootstrapper.cs` | `MonoBehaviour` | 启动并加载 `Level_00` | `Start` | Core、Framework、UnityEngine | P0 |
 | `Assets/Game/Bootstrap/Game.Bootstrap.asmdef` | asmdef | AOT 启动器边界 | — | Core、Framework、Infrastructure | P0 |
-| `Assets/Game/Editor/M0SceneBuilder.cs` | `static class` | 幂等生成 M0 场景/构建配置 | `BuildM0Scenes`、`BuildLevel`、`CreateCube` | Presentation、Bootstrap、UnityEditor | P1 |
+| `Assets/Game/Editor/M0SceneBuilder.cs` | `static class` | 幂等生成场景：根节点 + visualRoot + 前向指示器 | `BuildM0Scenes`、`BuildLevel`、`CreateCube` | Presentation、Bootstrap、UnityEditor | P1 |
 | `Assets/Game/Editor/Game.Editor.asmdef` | asmdef | Editor-only 工具边界 | — | 全部运行时程序集 | P2 |
 | `Assets/Tests/EditMode/*.cs` | NUnit 测试 | 纯逻辑回归 | 见第 13 章 | Core、Domain、Application | P1 |
+| `Assets/Tests/EditMode/GuardBrainTests.cs` | NUnit 测试 | 守卫视锥/遮挡/状态机 | `GuardBrainTests` | Core、Domain | P1 |
 | `Assets/Tests/EditMode/Game.Tests.EditMode.asmdef` | asmdef | 测试程序集 | `UNITY_INCLUDE_TESTS` | Core、Domain、Application | P1 |
 | `Assets/Scenes/Boot.unity` | Scene | 启动场景（`Bootstrap`） | — | — | P0 |
 | `Assets/Scenes/Level_00.unity` | Scene | M0 灰盒关卡 | — | — | P0 |
@@ -1516,7 +1955,10 @@ Window → General → Test Runner → EditMode → Run All
 | 残影怎么回放 | `EchoManager.Tick` | `EchoPlayback.Tick`、`GameLoop.SyncEchoViews` |
 | 为什么所有残影回 t=0 | `GameSession.TryRewind` | `EchoManager.ResetAll` |
 | 压力板怎么开门 | `GameLoop.CountPlateActivators` | `PressurePlateView.Contains`、`ActivationAggregator`、`DoorView` |
-| 画面怎么插值 | `GameLoop.Render` | `PlayerView.Apply`、`EchoView.Apply` |
+| 守卫怎么看到目标 | `GuardBrain.UpdateVision` | `PerceptionTarget`、`IVisionWorld`、`PhysicsVisionWorld` |
+| 守卫状态怎么迁移 | `GuardBrain.Tick` | `GuardState`、`GuardConfig`、`GuardBrainTests` |
+| 守卫参数怎么调 | `GuardConfig` | `Docs/DesignRules.md` 第 6 章 |
+| 画面怎么插值 | `GameLoop.Render` | `PlayerView.Apply`、`EchoView.Apply`、`GuardView.Apply` |
 | 场景怎么生成 | `M0SceneBuilder` | `Docs/CodeTour` 第 12 章 |
 | 怎么加测试 | `Assets/Tests/EditMode` | 第 13 章、`FakeCollisionWorld` |
 | 怎么改数值 | `GameConstants` | `Docs/DesignRules.md`、相关测试 |
@@ -1537,16 +1979,26 @@ EchoPlayback
 EchoManager
   → EchoPlayback, EchoRecorder, GameConstants.MaxEchoes
 
+GuardBrain
+  → PerceptionTarget, IVisionWorld, GuardConfig, GuardState, Vec3
+
+GuardSystem
+  → GuardBrain, PerceptionTarget, IVisionWorld
+
 GameLoop
-  → UnityInputService, PhysicsCollisionWorld, GameSession,
-    PlayerView, EchoView, CameraRig, PressurePlateView, DoorView, GameHud
+  → UnityInputService, PhysicsCollisionWorld, PhysicsVisionWorld,
+    GameSession, GuardSystem, PlayerView, EchoView, GuardView,
+    CameraRig, PressurePlateView, DoorView, GameHud
 
 PhysicsCollisionWorld
   → ICollisionWorld, UnityEngine.Physics
 
+PhysicsVisionWorld
+  → IVisionWorld, UnityEngine.Physics
+
 M0SceneBuilder
-  → GameLoop, PlayerView, CameraRig, PressurePlateView, DoorView,
-    GameHud, Bootstrapper, UnityEditor
+  → GameLoop, PlayerView, GuardView, CameraRig, PressurePlateView,
+    DoorView, GameHud, Bootstrapper, UnityEditor
 ```
 
 ### A.9 读代码时的“边界提示”
@@ -1569,6 +2021,7 @@ M0SceneBuilder
 - [ ] 改了核心规则？→ 先改 `Docs/DesignRules.md`，再改本文。
 - [ ] 新增了测试？→ 更新第 13 章测试地图。
 - [ ] 新增了修改方式？→ 更新第 15 章。
+- [ ] 换了角色模型/Animator？→ 更新第 10.3 节与第 15.2.1 节。
 - [ ] 改了程序集依赖？→ 更新第 2 章依赖图。
 - [ ] 改了构建后端/包？→ 更新第 14 章与 `Docs/Environment.md`。
 - [ ] 本文中的行号/文件名是否还准确？→ 用 `grep`/IDE 搜索确认。

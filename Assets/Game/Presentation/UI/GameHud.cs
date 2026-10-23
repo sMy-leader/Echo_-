@@ -1,4 +1,5 @@
 using Game.Application;
+using Game.Domain;
 using UnityEngine;
 
 namespace Game.Presentation
@@ -11,11 +12,44 @@ namespace Game.Presentation
     public sealed class GameHud : MonoBehaviour
     {
         private GameSession _session;
+        private GuardSystem _guards;
         private GUIStyle _labelStyle;
+        private string _statusMessage;
+        private float _statusTime;
 
         public void Bind(GameSession session)
         {
             _session = session;
+        }
+
+        /// <summary>
+        /// 守卫状态绑定。HUD 只读 GuardSystem，不参与感知/状态判定。
+        /// </summary>
+        public void BindGuards(GuardSystem guards)
+        {
+            _guards = guards;
+        }
+
+        /// <summary>
+        /// 显示一次性状态提示（如“被发现 — 时间回溯”）。
+        /// 用 unscaledDeltaTime，暂停/慢动作时提示仍然会消失。
+        /// </summary>
+        public void ShowStatus(string message, float duration = 0.9f)
+        {
+            _statusMessage = message;
+            _statusTime = Mathf.Max(0.01f, duration);
+        }
+
+        private void Update()
+        {
+            if (_statusTime > 0f)
+            {
+                _statusTime = Mathf.Max(0f, _statusTime - Time.unscaledDeltaTime);
+                if (_statusTime <= 0f)
+                {
+                    _statusMessage = null;
+                }
+            }
         }
 
         private void OnGUI()
@@ -34,8 +68,8 @@ namespace Game.Presentation
                 };
             }
 
-            GUILayout.BeginArea(new Rect(20f, 20f, 420f, 220f), GUI.skin.box);
-            GUILayout.Label("ECHO / 残响 — M0 Vertical Slice", _labelStyle);
+            GUILayout.BeginArea(new Rect(20f, 20f, 460f, 250f), GUI.skin.box);
+            GUILayout.Label("ECHO / 残响 — M0/M1 Prototype", _labelStyle);
             GUILayout.Label(
                 string.Format("Echoes: {0}/{1}", _session.Echoes.Count, Game.Core.GameConstants.MaxEchoes),
                 _labelStyle);
@@ -58,7 +92,31 @@ namespace Game.Presentation
                     _session.Player.IsGrounded ? "yes" : "no",
                     _session.Player.Position),
                 _labelStyle);
+
+            if (_guards != null && _guards.Guards.Count > 0)
+            {
+                GuardBrain guard = _guards.Guards[0];
+                string target = guard.HasVisibleTarget
+                    ? guard.VisibleTargetId.ToString()
+                    : "-";
+
+                GUILayout.Label(
+                    string.Format(
+                        "Guard: {0}   Suspicion: {1:0}   Target: {2}",
+                        guard.State,
+                        guard.Suspicion,
+                        target),
+                    _labelStyle);
+            }
+
             GUILayout.Label("WASD move · Shift sneak · R rewind", _labelStyle);
+
+            if (!string.IsNullOrEmpty(_statusMessage) && _statusTime > 0f)
+            {
+                GUILayout.Space(6f);
+                GUILayout.Label(_statusMessage, _labelStyle);
+            }
+
             GUILayout.EndArea();
         }
     }

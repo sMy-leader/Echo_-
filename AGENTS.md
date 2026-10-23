@@ -25,6 +25,7 @@
 - AOT 程序集（Bootstrap / Framework / Infrastructure）不能编译期引用热更程序集。
 - Unity API 只能在 `Game.Presentation` / `Game.Infrastructure` / `Game.Bootstrap` 中使用。
 - 逻辑固定 60Hz；表现层只做插值和反馈。
+- 角色根节点在脚底，模型/胶囊放在 `visualRoot` 子节点；逻辑胶囊负责碰撞，视觉模型不挂 Collider。
 
 ## 3. 核心规则
 
@@ -53,6 +54,7 @@
   - 新增文件 → 附录 A“代码地图”；
   - 改一帧流程 → 第 5 章“一帧的生命周期”；
   - 改核心规则 → 先改 `Docs/DesignRules.md`，再改 CodeTour；
+  - 新增守卫/感知 → 第 8.10 章“守卫感知与状态机”；
   - 新增测试 → 第 13 章“测试导读”；
   - 新增改法 → 第 15 章“常见修改指南”；
   - 改程序集依赖 → 第 2 章“工程结构与程序集”。
@@ -65,3 +67,10 @@
 - 新增或推翻决策时追加一条，不要直接改旧结论；旧结论标记 `Superseded`。
 - 每条决策至少写：背景、决策、理由、后果、重新评估触发条件。
 - 代码/文档与决策冲突时，先确认决策是否已过期，再改代码。
+
+## 7. 美术资产
+
+- 资产目录、命名、模型/贴图预算、Prefab 约定见 `Docs/ArtPipeline.md`。
+- 角色根节点在脚底，模型放 `visualRoot`，视觉体不挂 Collider。
+- 资产不要用 `FindWithTag` / `Resources.Load` 查找；用序列化引用，后续接 `IAssetService`。
+- 当前先直接 Prefab 引用；YooAsset 在 M2/M3 接入。

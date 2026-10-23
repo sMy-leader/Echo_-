@@ -22,6 +22,12 @@ namespace Game.Domain
         /// </summary>
         public bool IsFinished { get; private set; }
 
+        /// <summary>
+        /// 残影是否存活。被守卫/激光击杀后为 false，EchoManager 会在下一 tick 移除。
+        /// 死亡只对当前时间线有效；回溯时 ResetAll 不会复活已死亡残影。
+        /// </summary>
+        public bool IsAlive { get; private set; } = true;
+
         // Previous/Current 供表现层插值：alpha=0 显示 Previous，alpha=1 显示 Current。
         public EchoFrame Previous { get; private set; }
         public EchoFrame Current { get; private set; }
@@ -38,7 +44,7 @@ namespace Game.Domain
 
             for (int i = 0; i < _frames.Length; i++)
             {
-                _frames[i] = recorder.GetFrame(i);
+                _frames[i] = recorder.GetFrame(i);//获取所有帧
             }
 
             if (_frames.Length > 0)
@@ -55,6 +61,7 @@ namespace Game.Domain
         /// <summary>
         /// 前进一个 tick。第一帧在构造时已经作为 Current，因此这里从 cursor=0 再放一次，
         /// 视觉上相当于“残影在第 0 tick 出现在起点”，不会跳过第一帧。
+        /// 此处Tick->Manager.Tick->GameSession.Tick->GameLoop.Update->EchoView.Render（真实逻辑应是反过来-从loop的update开始）
         /// </summary>
         public void Tick()
         {
@@ -88,6 +95,15 @@ namespace Game.Domain
                 Previous = _frames[0];
                 Current = _frames[0];
             }
+        }
+
+        /// <summary>
+        /// 被守卫攻击/激光命中后调用。残影立即视为死亡，
+        /// 但保留轨迹数据以免影响正在播放的视图；EchoManager 负责移除。
+        /// </summary>
+        public void Kill()
+        {
+            IsAlive = false;
         }
     }
 }

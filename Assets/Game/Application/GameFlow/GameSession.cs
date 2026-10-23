@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Core;
 using Game.Domain;
 
@@ -105,10 +106,38 @@ namespace Game.Application
 
             Player.Tick(dt, input, _collision);
 
+            //分别记录玩家输入和残影轨迹，注意顺序：先记录玩家本体的这一帧，再记录残影的这一帧。
             InputRecorder.Record(input);
             EchoRecorder.Record(new EchoFrame(Player.Position, Player.Yaw, Player.State));
 
             Echoes.Tick();
+        }
+
+        /// <summary>
+        /// 把“玩家 + 残影”整理成守卫可感知的目标列表。
+        /// 复用外部 List，避免每 tick 分配；玩家 Id 固定为 0，残影用 EchoPlayback.Id。
+        /// </summary>
+        public void CollectPerceptionTargets(List<PerceptionTarget> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+            //将玩家的位置每帧传入进去
+            buffer.Add(new PerceptionTarget(0, Player.Position, true));
+
+            IReadOnlyList<EchoPlayback> echoes = Echoes.Echoes;
+            for (int i = 0; i < echoes.Count; i++)
+            {
+                if (!echoes[i].IsAlive)
+                {
+                    continue;
+                }
+
+                buffer.Add(new PerceptionTarget(echoes[i].Id, echoes[i].CurrentPosition, false));//传入残影的位置
+            }
         }
 
         /// <summary>

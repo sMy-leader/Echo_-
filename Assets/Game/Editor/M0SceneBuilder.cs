@@ -15,6 +15,10 @@ namespace Game.Editor
     {
         private const string LevelPath = "Assets/Scenes/Level_00.unity";
         private const string BootPath = "Assets/Scenes/Boot.unity";
+        private const string PlayerVisualPrefabPath = "Assets/Game/Art/Prefabs/Player_robot.prefab";
+        private const string GuardVisualPrefabPath = "Assets/Game/Art/Prefabs/Enemy_robot.prefab";
+        private const string EchoVisualPrefabPath = "Assets/Game/Art/Prefabs/Echo_robot.prefab";
+        private const string VfxMaterialPath = "Assets/Game/Art/VFX/M_Vfx_Additive.mat";
 
         // 由本工具“拥有”的对象名。重建时先删再建，保证场景可重复生成。
         private static readonly string[] GeneratedObjectNames =
@@ -31,6 +35,11 @@ namespace Game.Editor
             "Checkpoint",
             "Player",
             "PlayerSpawn",
+            "Guard",
+            "GuardPatrol_A",
+            "GuardPatrol_B",
+            "GuardPatrol_C",
+            "GuardPatrol_D",
             "Game"
         };
 
@@ -77,6 +86,8 @@ namespace Game.Editor
 
             ConfigureCamera();
             ConfigureLight();
+
+            Material vfxMaterial = AssetDatabase.LoadAssetAtPath<Material>(VfxMaterialPath);
 
             CreateCube(
                 "Floor",
@@ -148,15 +159,100 @@ namespace Game.Editor
                 new Color(0.2f, 0.55f, 1f),
                 keepCollider: false);
 
-            GameObject player = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            player.name = "Player";
-            player.transform.position = new Vector3(0f, 0.95f, -6f);
-            player.transform.localScale = new Vector3(0.6f, 0.9f, 0.6f);
-            Object.DestroyImmediate(player.GetComponent<Collider>());
+            // 玩家根节点在脚底；胶囊/模型放在 visualRoot 子节点。
+            // 这样未来换模型时只换 visualRoot，逻辑胶囊和 PlayerMotor 不动。
+            GameObject player = new GameObject("Player");
+            player.transform.position = new Vector3(0f, 0.05f, -6f);
             PlayerView playerView = player.AddComponent<PlayerView>();
+
+            GameObject playerVisual = InstantiateCharacterVisual(
+                PlayerVisualPrefabPath,
+                player.transform,
+                0.85f);
+
+            if (playerVisual != null)
+            {
+                // 正式模型已经带材质，不再用 PlayerView 的 fallback 橙色覆盖。
+                playerView.applyColorToVisual = false;
+            }
+            else
+            {
+                playerVisual = CreateCapsuleVisual(
+                    player.transform,
+                    0.9f,
+                    new Vector3(0.6f, 0.9f, 0.6f));
+            }
+
+            playerView.visualRoot = playerVisual.transform;
+
+            CharacterVfx playerVfx = player.AddComponent<CharacterVfx>();
+            playerVfx.visualRoot = playerVisual.transform;
+            playerVfx.particleMaterial = vfxMaterial;
+            playerVfx.primaryColor = new Color(1f, 0.55f, 0.15f);
+            playerVfx.coreHeight = 1.0f;
+            playerView.vfx = playerVfx;
 
             GameObject spawn = new GameObject("PlayerSpawn");
             spawn.transform.position = new Vector3(0f, 0.05f, -6f);
+
+            // 守卫根节点在脚底；胶囊/模型放在 visualRoot，前向指示器放在 forwardIndicator。
+            // 胶囊是对称的，forwardIndicator 让顶部视角能看出守卫面朝哪边。
+            GameObject guard = new GameObject("Guard");
+            guard.transform.position = new Vector3(0f, 0.05f, 0f);
+            guard.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            GuardView guardView = guard.AddComponent<GuardView>();
+
+            GameObject guardVisual = InstantiateCharacterVisual(
+                GuardVisualPrefabPath,
+                guard.transform,
+                0.7f);
+
+            if (guardVisual != null)
+            {
+                // 模型已经有自己的材质/发光条，状态颜色主要靠 ForwardIndicator 表达。
+                guardView.applyStateColorToVisual = false;
+            }
+            else
+            {
+                guardVisual = CreateCapsuleVisual(
+                    guard.transform,
+                    0.9f,
+                    new Vector3(0.6f, 0.9f, 0.6f));
+            }
+
+            guardView.visualRoot = guardVisual.transform;
+
+            CharacterVfx guardVfx = guard.AddComponent<CharacterVfx>();
+            guardVfx.visualRoot = guardVisual.transform;
+            guardVfx.particleMaterial = vfxMaterial;
+            guardVfx.primaryColor = new Color(1f, 0.15f, 0.1f);
+            guardVfx.coreHeight = 1.2f;
+            guardView.vfx = guardVfx;
+
+            GameObject guardForward = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            guardForward.name = "ForwardIndicator";
+            guardForward.transform.SetParent(guard.transform, false);
+            guardForward.transform.localPosition = new Vector3(0f, 1.9f, 1.0f);
+            guardForward.transform.localScale = new Vector3(0.22f, 0.22f, 0.5f);
+            Object.DestroyImmediate(guardForward.GetComponent<Collider>());
+            guardView.forwardIndicator = guardForward.transform;
+
+            GameObject patrolA = new GameObject("GuardPatrol_A");
+            patrolA.transform.position = new Vector3(0f, 0f, 0f);
+            GameObject patrolB = new GameObject("GuardPatrol_B");
+            patrolB.transform.position = new Vector3(5f, 0f, 0f);
+            GameObject patrolC = new GameObject("GuardPatrol_C");
+            patrolC.transform.position = new Vector3(5f, 0f, 3f);
+            GameObject patrolD = new GameObject("GuardPatrol_D");
+            patrolD.transform.position = new Vector3(-5f, 0f, 3f);
+
+            guardView.patrolPoints = new[]
+            {
+                patrolA.transform,
+                patrolB.transform,
+                patrolC.transform,
+                patrolD.transform
+            };
 
             GameObject game = new GameObject("Game");
             GameLoop loop = game.AddComponent<GameLoop>();
@@ -166,6 +262,9 @@ namespace Game.Editor
             loop.cameraRig = Object.FindAnyObjectByType<CameraRig>();
             loop.pressurePlate = plateView;
             loop.door = doorView;
+            loop.guardView = guardView;
+            loop.echoVisualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(EchoVisualPrefabPath);
+            loop.echoVfxMaterial = vfxMaterial;
             loop.hud = hud;
 
             EditorSceneManager.MarkSceneDirty(scene);
@@ -270,6 +369,60 @@ namespace Game.Editor
             }
 
             return cube;
+        }
+
+        /// <summary>
+        /// 实例化正式角色 Prefab，作为角色的 visualRoot 子节点。
+        /// Prefab 的 pivot 约定在脚底；找不到 Prefab 时返回 null，由调用方回退胶囊。
+        /// </summary>
+        private static GameObject InstantiateCharacterVisual(
+            string prefabPath,
+            Transform parent,
+            float uniformScale)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (prefab == null)
+            {
+                return null;
+            }
+
+            GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            instance.name = "Visual";
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localScale = Vector3.one * uniformScale;
+
+            RemoveColliders(instance);
+            return instance;
+        }
+
+        /// <summary>
+        /// 灰盒 fallback：没有正式模型时使用的胶囊视觉体。
+        /// </summary>
+        private static GameObject CreateCapsuleVisual(
+            Transform parent,
+            float localY,
+            Vector3 scale)
+        {
+            GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            visual.name = "Visual";
+            visual.transform.SetParent(parent, false);
+            visual.transform.localPosition = new Vector3(0f, localY, 0f);
+            visual.transform.localScale = scale;
+            RemoveColliders(visual);
+            return visual;
+        }
+
+        /// <summary>
+        /// 视觉体不参与物理；模型自带 Collider 时也一并移除。
+        /// </summary>
+        private static void RemoveColliders(GameObject root)
+        {
+            Collider[] colliders = root.GetComponentsInChildren<Collider>(true);
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                Object.DestroyImmediate(colliders[i]);
+            }
         }
 
         /// <summary>

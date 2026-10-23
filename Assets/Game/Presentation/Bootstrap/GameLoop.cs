@@ -23,6 +23,9 @@ namespace Game.Presentation
         public CameraRig cameraRig;
         public PressurePlateView pressurePlate;
         public DoorView door;
+        public GuardView guardView;
+        public GameObject echoVisualPrefab;
+        public Material echoVfxMaterial;
         public GameHud hud;
 
         // EchoPlayback 是引用类型，直接作为字典键，避免额外 Id 映射表。
@@ -34,7 +37,11 @@ namespace Game.Presentation
 
         private UnityInputService _input;
         private GameSession _session;
+        private GuardSystem _guards;
+        private PhysicsVisionWorld _vision;
+        private readonly List<PerceptionTarget> _perceptionTargets = new List<PerceptionTarget>();
         private float _accumulator;// 累积真实时间，驱动固定 tick 循环。
+        private float _failureCooldown;
 
         /// <summary>
         /// 在 Awake 建 Session，保证第一帧 Update 之前已经有检查点。
@@ -55,9 +62,31 @@ namespace Game.Presentation
                 spawnYaw);
             _session.CaptureCheckpoint();
 
+            // 守卫：场景里的 GuardView 提供出生点/巡逻点；Domain 只拿到纯数据。
+            _vision = new PhysicsVisionWorld();
+            _guards = new GuardSystem();
+
+            if (guardView != null)
+            {
+                List<Vec3> patrolPoints = new List<Vec3>();
+                guardView.CollectPatrolPositions(patrolPoints);//开始收集巡逻点
+
+                // GuardView 根节点已经在脚底，GuardBrain 直接使用根节点位置。
+                Vector3 feet = guardView.transform.position;
+
+                //将 GuardView 的 Transform 位置和旋转、巡逻点信息等转换为 GuardBrain 的数据
+                _guards.Add(new GuardBrain(
+                    1,
+                    new Vec3(feet.x, feet.y, feet.z),
+                    guardView.transform.eulerAngles.y,
+                    patrolPoints,
+                    new GuardConfig()));
+            }
+
             if (hud != null)
             {
                 hud.Bind(_session);
+                hud.BindGuards(_guards);
             }
         }
 
@@ -90,12 +119,24 @@ namespace Game.Presentation
                     _session.TryRewind();
                 }
 
-                _session.Tick(GameConstants.TickDelta, input);
+                _session.Tick(GameConstants.TickDelta, input);//开始记录玩家和残影的移动—（打断点进去看）
 
-                // 掉出场景的兜底：M0 没有死亡系统，直接回检查点且不生成残影。
+                // 玩家/残影移动完之后再让守卫感知，保证目标位置是本 tick 的。
+                _session.CollectPerceptionTargets(_perceptionTargets);
+                _guards.Tick(GameConstants.TickDelta, _perceptionTargets, _vision);//不断加入列表刷新帧，让守卫感知到玩家和残影的位置->System
+
+                // 守卫蓄力结束的 AttackHit 只在这一 tick 为 true。
+                HandleGuardAttacks();
+
+                // 掉出场景的兜底：通过统一的失败流程回到检查点。
                 if (_session.Player.Position.Y < -10f)
                 {
-                    _session.RestoreCheckpoint();
+                    TriggerFailure();
+                }
+
+                if (_failureCooldown > 0f)
+                {
+                    _failureCooldown = Mathf.Max(0f, _failureCooldown - GameConstants.TickDelta);
                 }
 
                 // 玩家和残影都移动完之后再统计，压力板看到的才是本 tick 的位置。
@@ -123,6 +164,11 @@ namespace Game.Presentation
                 playerView.Apply(_session.Player, alpha);
             }
 
+            if (guardView != null && _guards.Guards.Count > 0)
+            {
+                guardView.Apply(_guards.Guards[0], alpha);
+            }
+
             if (cameraRig != null)
             {
                 Vec3 playerPosition = _session.Player.Position;
@@ -145,6 +191,61 @@ namespace Game.Presentation
         }
 
         /// <summary>
+        /// 守卫攻击结算：
+        /// - 命中本体 → 统一失败流程（回检查点，不生成残影）；
+        /// - 命中残影 → 只击杀残影，本体不受影响。
+        /// AttackHit 是 GuardBrain 的一次性事件，处理完下一 tick 自动清掉。
+        /// </summary>
+        private void HandleGuardAttacks()
+        {
+            IReadOnlyList<GuardBrain> guards = _guards.Guards;
+            for (int i = 0; i < guards.Count; i++)
+            {
+                GuardBrain guard = guards[i];
+                if (!guard.AttackHit)
+                {
+                    continue;
+                }
+
+                if (guard.AttackTargetIsPlayer)
+                {
+                    TriggerFailure();
+                }
+                else
+                {
+                    _session.Echoes.TryKill(guard.AttackTargetId);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 失败演出入口：先恢复检查点，再触发相机震动/HUD 提示。
+        /// 这里没有延迟 0.8s 再恢复，因为 M1 优先保证“失败后立刻可操作”；
+        /// 正式的 0.4s 扑击 + 0.8s 时间撕裂会在动画/后处理接入后补上。
+        /// 冷却避免同一 tick 多个守卫重复触发。
+        /// </summary>
+        private void TriggerFailure()
+        {
+            if (_failureCooldown > 0f)
+            {
+                return;
+            }
+
+            _failureCooldown = 1.2f;
+            _session.RestoreCheckpoint();
+
+            if (cameraRig != null)
+            {
+                cameraRig.Shake(0.35f, 0.35f);
+            }
+
+            if (hud != null)
+            {
+                hud.ShowStatus("被发现 — 时间回溯", 0.9f);
+            }
+        }
+
+        /// <summary>
         /// 统计压力板上的激活源：本体 + 所有残影。
         /// 这里用几何包含判断，而不是 Unity Trigger，保证结果和 Domain 的
         /// “每 tick 重算”一致，也不依赖物理回调顺序。
@@ -163,6 +264,11 @@ namespace Game.Presentation
 
             for (int i = 0; i < echoes.Count; i++)
             {
+                if (!echoes[i].IsAlive)
+                {
+                    continue;
+                }
+
                 if (pressurePlate.Contains(echoes[i].CurrentPosition))
                 {
                     count++;
@@ -213,7 +319,9 @@ namespace Game.Presentation
                     _echoViews.Remove(echo);
                     if (view != null)
                     {
-                        Destroy(view.gameObject);
+                        // 先让消散爆发播完，再销毁根节点；否则粒子会随对象立刻消失。
+                        view.PlayDespawnBurst();
+                        Destroy(view.gameObject, 0.35f);
                     }
                 }
             }
@@ -221,24 +329,57 @@ namespace Game.Presentation
 
         /// <summary>
         /// 残影视图是纯表现对象，不参与物理：
-        /// - 用 Capsule 只是借用默认网格；
-        /// - 立刻禁用并销毁 Collider，避免它挡住本体的胶囊扫掠。
+        /// - 根节点在脚底；
+        /// - 有 echoVisualPrefab 时实例化正式的残影模型；没有时回退胶囊；
+        /// - 模型/胶囊都作为子节点，EchoView 只同步根节点；
+        /// - 移除视觉上的 Collider，避免挡住本体的胶囊扫掠。
+        ///
+        /// 注意：不要用 FindWithTag 去“找预制体”。Prefab 是资产，不在场景里；
+        /// 而且多个残影会抢同一个场景对象。这里用序列化引用 + Instantiate。
         /// </summary>
-        private static EchoView CreateEchoView(EchoPlayback echo)
+        private EchoView CreateEchoView(EchoPlayback echo)
         {
-            GameObject echoObject = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            echoObject.name = "Echo_" + echo.Id;
-            echoObject.transform.localScale = new Vector3(0.6f, 0.9f, 0.6f);
+            GameObject echoRoot = new GameObject("Echo_" + echo.Id);
+            echoRoot.SetActive(false);
 
-            Collider collider = echoObject.GetComponent<Collider>();
-            if (collider != null)
+            EchoView view = echoRoot.AddComponent<EchoView>();
+            CharacterVfx vfx = echoRoot.AddComponent<CharacterVfx>();
+
+            GameObject visual;
+            if (echoVisualPrefab != null)
             {
-                collider.enabled = false;
-                Destroy(collider);
+                visual = Instantiate(echoVisualPrefab, echoRoot.transform, false);
+                visual.name = "Visual";
+                visual.transform.localPosition = Vector3.zero;
+                visual.transform.localRotation = Quaternion.identity;
+            }
+            else
+            {
+                visual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                visual.name = "Visual";
+                visual.transform.SetParent(echoRoot.transform, false);
+                visual.transform.localPosition = new Vector3(0f, 0.9f, 0f);
+                visual.transform.localScale = new Vector3(0.6f, 0.9f, 0.6f);
             }
 
-            EchoView view = echoObject.AddComponent<EchoView>();
+            // 视觉体不参与物理；模型自带 Collider 时也一并移除。
+            Collider[] colliders = visual.GetComponentsInChildren<Collider>(true);
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                colliders[i].enabled = false;
+                Destroy(colliders[i]);
+            }
+
+            vfx.visualRoot = visual.transform;
+            vfx.particleMaterial = echoVfxMaterial;
+            vfx.primaryColor = new Color(0.15f, 0.85f, 1f);
+            vfx.coreHeight = 0.95f;
+
+            view.vfx = vfx;
+            view.Initialize(visual.transform, visual.GetComponentInChildren<Animator>());
             view.Bind(echo);
+
+            echoRoot.SetActive(true);
             return view;
         }
 

@@ -33,22 +33,43 @@ namespace Game.Domain
         }
 
         /// <summary>
-        /// 前进所有残影。先移除“上一 tick 已结束”的残影，
-        /// 这样刚播完最后一帧的残影还能被渲染一次。
+        /// 前进所有残影。先移除“上一 tick 已结束/已死亡”的残影，
+        /// 这样刚播完最后一帧或被击杀的残影还能被渲染一次。
         /// </summary>
         public void Tick()
         {
             for (int i = _echoes.Count - 1; i >= 0; i--)
             {
                 EchoPlayback echo = _echoes[i];
-                if (echo.IsFinished)
+                if (echo.IsFinished || !echo.IsAlive)
                 {
                     _echoes.RemoveAt(i);
                     continue;
                 }
 
-                echo.Tick();
+                echo.Tick();//内部做逻辑判断，更新当前帧和位置—>进入Seesion的Tick()，然后在GameLoop的Update()里渲染残影
             }
+        }
+
+        /// <summary>
+        /// 按 Id 击杀残影。找不到或已死亡返回 false。
+        /// 用于守卫攻击/激光命中后的 Application 层结算。
+        /// </summary>
+        public bool TryKill(int echoId)
+        {
+            for (int i = 0; i < _echoes.Count; i++)
+            {
+                EchoPlayback echo = _echoes[i];
+                if (echo.Id != echoId || !echo.IsAlive)
+                {
+                    continue;
+                }
+
+                echo.Kill();
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>

@@ -85,6 +85,7 @@
 ## 当前状态
 
 M0 垂直切片已可运行（灰盒）。验证记录见 [M0-Verification.md](M0-Verification.md)。
+M1 守卫感知第一块已完成，见 [M1-Verification.md](M1-Verification.md)。
 
 - [x] Step 0.1 基线文档
 - [x] Step 0.2 asmdef 骨架
@@ -94,5 +95,9 @@ M0 垂直切片已可运行（灰盒）。验证记录见 [M0-Verification.md](M
 - [x] Step 2 玩家移动 + 灰盒
 - [x] Step 3 回溯/残影闭环
 - [x] Step 4 HUD/反馈
-- [ ] 手动键盘手感验证
+- [x] M1 守卫感知与状态机第一块（33/33 测试）
+- [x] M1.5 视觉基础（visualRoot / Animator 接口 / 前向指示器）
+- [x] VFX 第一版（悬停光圈 / 能量核心 / 拖尾 / Alert 脉冲 / 残影爆发）
+- [ ] 手动键盘手感验证（WASD/Shift/R 实际操作）
+- [ ] M1 守卫攻击/抓捕 + 激光门 + L1 布局
 - [ ] （可选）安装 Windows IL2CPP 模块并验证 HybridCLR；不阻塞当前 Mono 路线

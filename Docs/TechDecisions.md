@@ -107,3 +107,61 @@
   - `EchoFrame` 采用 16 字节布局；
   - `EchoPlayback` 拷贝录制帧，避免下一轮录制覆盖；
   - 残影可踩板/拉杆/挡激光/被击杀，但不能推箱子。
+
+## TD-006 角色视觉：机械构造体低模 + 最小 Mecanim + 程序化副动画
+
+- 状态：Accepted
+- 日期：2026-10-22
+- 背景：项目是固定视角 3D 工业风 Demo，单人开发，程序/引擎能力优先。
+- 决策：
+  - 玩家/守卫采用机械构造体低模；
+  - Mecanim 只做基础视觉状态（Idle/Walk/Sneak/Interact；守卫 Patrol/Alert 等）；
+  - 浮空、倾斜、挤压、头部转动等用程序化副动画；
+  - Root Motion 关闭，移动/状态仍由 `PlayerMotor` / `GuardBrain` 决定。
+- 理由：
+  - 机械体比类人更容易做风格统一和顶部视角可读性；
+  - 程序化副动画成本低、辨识度高；
+  - Mecanim 保持最小化，避免动画状态机重复玩法状态机。
+- 后果：
+  - View 驱动 Animator 参数，不驱动玩法；
+  - 模型导入后只需要替换 visualRoot/Animator，不需要改 Domain；
+  - 残影动画先用幽灵剪影 + 程序化浮动，完整 Mecanim 回放后置。
+
+## TD-007 逻辑胶囊与视觉根节点分离
+
+- 状态：Accepted
+- 日期：2026-10-22
+- 背景：当前玩家/守卫/残影用胶囊做视觉，后续要替换正式美术。
+- 决策：
+  - `PlayerMotor` / `GuardBrain` 继续使用逻辑胶囊（Radius/Height）；
+  - 角色根节点放在脚底，模型/胶囊放在 `visualRoot` 子节点；
+  - 模型不挂 Collider，不驱动移动；
+  - 场景生成器负责创建根节点 + visualRoot/forwardIndicator，Prefab 为空时回退胶囊。
+- 理由：
+  - 玩法逻辑与美术资产解耦；
+  - 换模型只改 Prefab/visualRoot，不改 Domain；
+  - 顶部视角下守卫需要前向指示器解决胶囊朝向不可读。
+- 后果：
+  - `PlayerView` / `GuardView` / `EchoView` 增加 visualRoot/Animator 字段；
+  - `GameLoop.CreateEchoView` 改为“根节点 + 视觉子节点”；
+  - `M0SceneBuilder` 改为生成根节点/子节点，不再把 PlayerView 挂在胶囊中心。
+
+## TD-008 VFX 第一版：代码生成 ParticleSystem，VFX Graph 后置
+
+- 状态：Accepted
+- 日期：2026-10-22
+- 背景：角色是一体低模，不适合骨骼动画；需要低成本提升悬停/时间能量/警报反馈。
+- 决策：
+  - 第一版用 `CharacterVfx` 运行时生成 ParticleSystem / TrailRenderer；
+  - 使用 URP Particles/Unlit Additive 材质；
+  - 接入 Hover / Core / Trail / AlertPulse / Burst 五类效果；
+  - VFX Graph、专用 Ghost Shader、粒子对象池后置。
+- 理由：
+  - 不依赖外部粒子资产，先验证视觉方向；
+  - 一体模型用程序化副动画 + VFX 比强行做骨骼更合适；
+  - 代码生成的粒子系统容易调参和替换。
+- 后果：
+  - `CharacterVfx` 只出现在 Presentation；
+  - `M0SceneBuilder` 给 Player/Guard 添加 CharacterVfx，`GameLoop` 给 Echo 添加；
+  - 残影消散爆发需要后续延迟销毁才能完整播放；
+  - 正式版要关注 Overdraw 和粒子数量。

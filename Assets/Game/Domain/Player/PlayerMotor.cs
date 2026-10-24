@@ -67,10 +67,19 @@ namespace Game.Domain
             MoveWithSlide(delta, world);
             ApplyGravity(dt, world);
 
-            // 有移动输入时才转向；原地不动时保持上一帧朝向。
+            // 有移动输入时平滑转向目标方向；720°/s 让转身有重量但不拖沓。
             if (wish.SqrMagnitude > 1e-6f)
             {
-                Yaw = (float)(Math.Atan2(wish.X, wish.Z) * RadToDeg);
+                float targetYaw = (float)(Math.Atan2(wish.X, wish.Z) * RadToDeg);
+                float deltaYaw = NormalizeAngle(targetYaw - Yaw);
+                float maxStep = GameConstants.PlayerTurnSpeedDegrees * dt;
+                float step = Math.Min(Math.Abs(deltaYaw), maxStep);
+                if (deltaYaw < 0f)
+                {
+                    step = -step;
+                }
+
+                Yaw = NormalizeAngle(Yaw + step);
             }
 
             bool moving = wish.SqrMagnitude > 1e-4f;
@@ -156,6 +165,25 @@ namespace Game.Domain
                 // 去掉撞墙方向的分量，剩下的就是沿墙滑行方向。
                 delta = Vec3.ProjectOnPlane(remaining, hit.Normal.Normalized);
             }
+        }
+
+        /// <summary>
+        /// 把角度归一化到 (-180, 180]，用于平滑转向的最短路径判断。
+        /// 纯 C#，不依赖 Mathf.DeltaAngle，保证 Domain 可无引擎测试。
+        /// </summary>
+        private static float NormalizeAngle(float degrees)
+        {
+            degrees %= 360f;
+            if (degrees > 180f)
+            {
+                degrees -= 360f;
+            }
+            else if (degrees < -180f)
+            {
+                degrees += 360f;
+            }
+
+            return degrees;
         }
 
         /// <summary>

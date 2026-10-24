@@ -29,6 +29,9 @@ namespace Game.Presentation
         public LaserGateView laserGate;
         public GameHud hud;
 
+        [Header("Camera movement")]
+        public bool cameraRelativeMovement;
+
         // EchoPlayback 是引用类型，直接作为字典键，避免额外 Id 映射表。
         private readonly Dictionary<EchoPlayback, EchoView> _echoViews =
             new Dictionary<EchoPlayback, EchoView>();
@@ -43,6 +46,7 @@ namespace Game.Presentation
         private readonly List<PerceptionTarget> _perceptionTargets = new List<PerceptionTarget>();
         private float _accumulator;// 累积真实时间，驱动固定 tick 循环。
         private float _failureCooldown;
+        private Transform _cameraTransform;
 
         /// <summary>
         /// 在 Awake 建 Session，保证第一帧 Update 之前已经有检查点。
@@ -113,6 +117,14 @@ namespace Game.Presentation
                 hud.Bind(_session);
                 hud.BindGuards(_guards);
             }
+
+            Camera mainCamera = Camera.main;
+            if (mainCamera == null)
+            {
+                mainCamera = Object.FindAnyObjectByType<Camera>();
+            }
+
+            _cameraTransform = mainCamera != null ? mainCamera.transform : null;
         }
 
         /// <summary>
@@ -156,6 +168,12 @@ namespace Game.Presentation
 
                 // 每个 tick 采样一次，保证边沿触发的 Rewind 只被消费一次。
                 InputFrame input = _input.Sample();
+
+                // 第三人称：把键盘/手柄的屏幕轴转换成相机在地面的前后左右。
+                if (cameraRelativeMovement)
+                {
+                    input = ToCameraRelative(input);
+                }
 
                 if (hud != null)
                 {
@@ -289,6 +307,49 @@ namespace Game.Presentation
                     _session.Echoes.TryKill(echoes[i].Id);
                 }
             }
+        }
+
+        /// <summary>
+        /// 把输入轴从“屏幕/世界方向”转换成相机相对方向。
+        /// 只在第三人称场景启用；室外固定俯视仍用世界轴，保证解谜方向稳定。
+        ///
+        /// 相机 forward/right 投影到 XZ 平面，避免俯仰导致移动速度变化。
+        /// </summary>
+        private InputFrame ToCameraRelative(InputFrame input)
+        {
+            if (_cameraTransform == null)
+            {
+                Camera mainCamera = Camera.main;
+                _cameraTransform = mainCamera != null ? mainCamera.transform : null;
+            }
+
+            if (_cameraTransform == null)
+            {
+                return input;
+            }
+
+            Vector3 forward = _cameraTransform.forward;
+            forward.y = 0f;
+            if (forward.sqrMagnitude < 1e-6f)
+            {
+                forward = Vector3.forward;
+            }
+            forward.Normalize();
+
+            Vector3 right = _cameraTransform.right;
+            right.y = 0f;
+            if (right.sqrMagnitude < 1e-6f)
+            {
+                right = Vector3.right;
+            }
+            right.Normalize();
+
+            Vector3 wish = forward * input.MoveYFloat + right * input.MoveXFloat;
+            return InputFrame.FromAxes(
+                wish.x,
+                wish.z,
+                (InputButtons)input.Buttons,
+                input.YawDegrees);
         }
 
         /// <summary>

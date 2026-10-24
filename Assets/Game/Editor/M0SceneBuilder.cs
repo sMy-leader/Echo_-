@@ -444,7 +444,9 @@ namespace Game.Editor
             {
                 new EditorBuildSettingsScene(BootPath, true),
                 new EditorBuildSettingsScene("Assets/Scenes/MainMenu.unity", true),
-                new EditorBuildSettingsScene(LevelPath, true)
+                new EditorBuildSettingsScene(LevelPath, true),
+                new EditorBuildSettingsScene("Assets/Scenes/Level_01.unity", true),
+                new EditorBuildSettingsScene("Assets/Scenes/Level_02_InteriorPrototype.unity", true)
             };
         }
     }

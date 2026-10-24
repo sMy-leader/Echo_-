@@ -12,6 +12,7 @@ namespace Game.Core
         // 玩家移动：步行用于跑图，潜行用于躲守卫（M1 才会真正用到噪音）。
         public const float WalkSpeed = 3.2f;
         public const float SneakSpeed = 1.2f;
+        public const float PlayerTurnSpeedDegrees = 720f;
         public const float Gravity = 20f;
 
         // 胶囊尺寸：Position 是脚底中心，所以胶囊中心 = Position + Up * (Height / 2)。

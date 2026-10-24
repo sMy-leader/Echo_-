@@ -20,14 +20,14 @@ namespace Game.Editor
     /// </summary>
     public static class L1SceneBuilder
     {
-        private const string LevelPath = "Assets/Scenes/Level_01.unity";
+        private const string LevelPath = "Assets/Scenes/Level_02_InteriorPrototype.unity";
         private const string PlayerVisualPrefabPath = "Assets/Game/Art/Prefabs/Player_robot.prefab";
         private const string GuardVisualPrefabPath = "Assets/Game/Art/Prefabs/Enemy_robot1.prefab";
         private const string EchoVisualPrefabPath = "Assets/Game/Art/Prefabs/Echo_robot.prefab";
         private const string VfxMaterialPath = "Assets/Game/Art/VFX/M_Vfx_Additive.mat";
         private const string GreyboxMaterialPath = "Assets/Game/Art/Materials/M_L1_Greybox.mat";
 
-        private static readonly string[] GeneratedObjectNames =
+        internal static readonly string[] GeneratedObjectNames =
         {
             "L1_Floor",
             "L1_Wall_South",
@@ -40,6 +40,8 @@ namespace Game.Editor
             "L1_Laser",
             "L1_Door",
             "L1_FillLight",
+            "L1_LaserEmitterLeft",
+            "L1_LaserEmitterRight",
             "L1_PressurePlate",
             "L1_Checkpoint",
             "L1_Player",
@@ -52,7 +54,7 @@ namespace Game.Editor
             "L1_Game"
         };
 
-        [MenuItem("ECHO/Build L1 Scene")]
+        [MenuItem("ECHO/Build L2 Interior Prototype")]
         public static void BuildL1Scene()
         {
             Scene scene;
@@ -93,7 +95,7 @@ namespace Game.Editor
             EditorSceneManager.SaveScene(scene);
             AddToBuildSettings();
 
-            Debug.Log("ECHO L1 scene built: " + LevelPath);
+            Debug.Log("ECHO L2 interior prototype built: " + LevelPath);
         }
 
         /// <summary>
@@ -161,7 +163,7 @@ namespace Game.Editor
                 material);
         }
 
-        private static void BuildMechanisms()
+        internal static void BuildMechanisms()
         {
             GameObject door = M0SceneBuilder.CreateCube(
                 "L1_Door",
@@ -233,7 +235,7 @@ namespace Game.Editor
                 keepCollider: false);
         }
 
-        private static void BuildCharacters(Material vfxMaterial)
+        internal static void BuildCharacters(Material vfxMaterial, bool cameraRelativeMovement = true)
         {
             GameObject player = new GameObject("L1_Player");
             player.transform.position = new Vector3(0f, 0.05f, -7f);
@@ -341,6 +343,7 @@ namespace Game.Editor
             loop.echoVisualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(EchoVisualPrefabPath);
             loop.echoVfxMaterial = vfxMaterial;
             loop.laserGate = Object.FindAnyObjectByType<LaserGateView>();
+            loop.cameraRelativeMovement = cameraRelativeMovement;
             loop.hud = hud;
         }
 
@@ -354,7 +357,7 @@ namespace Game.Editor
         /// ProBuilder 盒子：用 ShapeGenerator 生成 mesh，再补 MeshCollider。
         /// 视觉上是一整块 ProBuilder 几何；后续可以逐面替换成 Kit 模块。
         /// </summary>
-        private static GameObject CreateProBuilderBox(
+        internal static GameObject CreateProBuilderBox(
             string name,
             Vector3 position,
             Vector3 size,
@@ -395,7 +398,7 @@ namespace Game.Editor
             return go;
         }
 
-        private static Material LoadOrCreateGreyboxMaterial()
+        internal static Material LoadOrCreateGreyboxMaterial()
         {
             Material material = AssetDatabase.LoadAssetAtPath<Material>(GreyboxMaterialPath);
             if (material != null)

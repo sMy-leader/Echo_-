@@ -9,7 +9,8 @@
     "Game.Infrastructure",
     "Unity.InputSystem",
     "UnityEngine.UI",
-    "Unity.TextMeshPro"
+    "Unity.TextMeshPro",
+    "Unity.Cinemachine"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

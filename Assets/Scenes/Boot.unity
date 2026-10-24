@@ -461,7 +461,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 34a3028bea1188046b71bb738eedcfa4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Bootstrap::Game.Bootstrap.Bootstrapper
-  firstScene: Level_00
+  firstScene: MainMenu
 --- !u!4 &943538690
 Transform:
   m_ObjectHideFlags: 0

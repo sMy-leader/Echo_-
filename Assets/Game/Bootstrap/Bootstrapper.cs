@@ -15,7 +15,7 @@ namespace Game.Bootstrap
     /// </summary>
     public sealed class Bootstrapper : MonoBehaviour
     {
-        [SerializeField] private string firstScene = "Level_00";
+        [SerializeField] private string firstScene = "MainMenu";
 
         // UnityEngine 也有 ILogger，这里显式写 Game.Core.ILogger。
         private readonly Game.Core.ILogger _logger = new UnityLogger();

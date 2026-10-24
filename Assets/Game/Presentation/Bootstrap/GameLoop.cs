@@ -27,6 +27,7 @@ namespace Game.Presentation
         public GameObject echoVisualPrefab;
         public Material echoVfxMaterial;
         public LaserGateView laserGate;
+        public LevelPortalView levelPortal;
         public GameHud hud;
 
         [Header("Camera movement")]
@@ -47,6 +48,7 @@ namespace Game.Presentation
         private float _accumulator;// 累积真实时间，驱动固定 tick 循环。
         private float _failureCooldown;
         private Transform _cameraTransform;
+        private bool _portalTriggered;
 
         /// <summary>
         /// 在 Awake 建 Session，保证第一帧 Update 之前已经有检查点。
@@ -118,6 +120,7 @@ namespace Game.Presentation
                 hud.BindGuards(_guards);
             }
 
+            //设置摄像机的位置保证固定
             Camera mainCamera = Camera.main;
             if (mainCamera == null)
             {
@@ -197,6 +200,16 @@ namespace Game.Presentation
 
                 // 激光命中在守卫之后判定，避免同一 tick 的失败流程重复触发。
                 CheckLaserHits();
+
+                // 传送门只触发一次；玩家没有 Collider，所以用几何包含判断。
+                if (!_portalTriggered
+                    && levelPortal != null
+                    && levelPortal.Contains(_session.Player.Position)
+                    && (!levelPortal.requirePlateActive || _session.Plate.IsActive))
+                {
+                    _portalTriggered = true;
+                    LevelFlow.Instance.LoadScene(levelPortal.nextScene);
+                }
 
                 // 掉出场景的兜底：通过统一的失败流程回到检查点。
                 if (_session.Player.Position.Y < -10f)

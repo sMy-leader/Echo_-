@@ -49,6 +49,7 @@ namespace Game.Presentation
             orbit.OrbitStyle = CinemachineOrbitalFollow.OrbitStyles.Sphere;
             orbit.Radius = radius;
 
+            //修改CinemachineOrbit设置
             CinemachineOrbitalFollow orbitComponent = orbit;
             InputAxis horizontal = orbitComponent.HorizontalAxis;
             horizontal.Range = new Vector2(-180f, 180f);
@@ -80,13 +81,14 @@ namespace Game.Presentation
                 return;
             }
 
-            Vector2 delta = Mouse.current.delta.ReadValue();
+            Vector2 delta = Mouse.current.delta.ReadValue();//读取鼠标移动值
             _yaw += delta.x * yawSensitivity;
             _pitch = Mathf.Clamp(
                 _pitch - delta.y * pitchSensitivity,
                 minPitch,
                 maxPitch);
 
+            //应用横向和纵向轴
             InputAxis horizontal = orbit.HorizontalAxis;
             horizontal.Value = _yaw;
             orbit.HorizontalAxis = horizontal;

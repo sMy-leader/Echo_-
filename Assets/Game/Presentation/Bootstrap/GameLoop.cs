@@ -157,6 +157,11 @@ namespace Game.Presentation
                 // 每个 tick 采样一次，保证边沿触发的 Rewind 只被消费一次。
                 InputFrame input = _input.Sample();
 
+                if (hud != null)
+                {
+                    hud.SetTimelineVisible(input.Has(InputButtons.Timeline));
+                }
+
                 // 先处理回溯，再 Tick；这样回溯后的第一帧会从检查点开始录制。
                 if (input.Has(InputButtons.Rewind))
                 {
@@ -217,6 +222,7 @@ namespace Game.Presentation
                 guardView.Apply(_guards.Guards[0], alpha);
             }
 
+            //设置为潜行状态并且跟随玩家位置—>业务层在“CameraRig”里（做拉近拉远的逻辑）
             if (cameraRig != null)
             {
                 Vec3 playerPosition = _session.Player.Position;
@@ -256,7 +262,7 @@ namespace Game.Presentation
             {
                 return;
             }
-
+            //获取玩家中心位置
             Vec3 playerCenter = _session.Player.Position + Vec3.Up * 1.0f;
             if (laserGate.Intersects(
                 new Vector3(playerCenter.X, playerCenter.Y, playerCenter.Z),
@@ -274,6 +280,7 @@ namespace Game.Presentation
                     continue;
                 }
 
+                //如果是残影的话，执行残影逻辑->获取中心点->Trykill，从存储残影的列表中移除
                 Vec3 echoCenter = echoes[i].CurrentPosition + Vec3.Up * 0.9f;
                 if (laserGate.Intersects(
                     new Vector3(echoCenter.X, echoCenter.Y, echoCenter.Z),

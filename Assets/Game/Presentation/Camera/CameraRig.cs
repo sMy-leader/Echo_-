@@ -102,7 +102,7 @@ namespace Game.Presentation
             {
                 return;
             }
-
+            //潜行状态和走路状态分开用不同的距离和FOV，潜行状态下拉近相机距离和收窄FOV（此处收距离）
             float desiredDistance = _sneaking
                 ? _targetDistance * sneakDistanceScale
                 : _targetDistance;
@@ -112,6 +112,7 @@ namespace Game.Presentation
                 desiredDistance,
                 1f - Mathf.Exp(-zoomSpeed * deltaTime));
 
+            //同上判断，潜行状态下收窄FOV
             float desiredFov = _sneaking ? sneakFieldOfView : fieldOfView;
             _currentFov = Mathf.Lerp(
                 _currentFov,

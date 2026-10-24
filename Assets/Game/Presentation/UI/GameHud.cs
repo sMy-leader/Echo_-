@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Application;
 using Game.Domain;
 using UnityEngine;
@@ -16,6 +17,7 @@ namespace Game.Presentation
         private GUIStyle _labelStyle;
         private string _statusMessage;
         private float _statusTime;
+        private bool _timelineVisible;
 
         public void Bind(GameSession session)
         {
@@ -38,6 +40,15 @@ namespace Game.Presentation
         {
             _statusMessage = message;
             _statusTime = Mathf.Max(0.01f, duration);
+        }
+
+        /// <summary>
+        /// Tab 按住时显示时间轴；松开后隐藏。
+        /// 只读 GameSession，不暂停、不改变玩法状态。
+        /// </summary>
+        public void SetTimelineVisible(bool visible)
+        {
+            _timelineVisible = visible;
         }
 
         private void Update()
@@ -119,6 +130,64 @@ namespace Game.Presentation
                 GUILayout.Label(_statusMessage, _labelStyle);
             }
 
+            GUILayout.EndArea();
+
+            if (_timelineVisible)
+            {
+                DrawTimeline();
+            }
+        }
+
+        /// <summary>
+        /// Tab 时间轴面板：录制时长、残影槽位、每个残影的剩余时间。
+        /// 轨迹线/时间刻度后续再加，先保证信息可读。
+        /// </summary>
+        private void DrawTimeline()
+        {
+            GUILayout.BeginArea(
+                new Rect(Screen.width - 380f, 20f, 360f, 260f),
+                GUI.skin.box);
+
+            GUILayout.Label("TIMELINE — hold Tab", _labelStyle);
+            GUILayout.Label(
+                string.Format(
+                    "Record: {0:0.0}s / {1:0}s",
+                    _session.InputRecorder.Count / 60f,
+                    Game.Core.GameConstants.RecordLimitSeconds),
+                _labelStyle);
+            GUILayout.Label(
+                string.Format(
+                    "Echoes: {0}/{1}",
+                    _session.Echoes.Count,
+                    Game.Core.GameConstants.MaxEchoes),
+                _labelStyle);
+
+            IReadOnlyList<EchoPlayback> echoes = _session.Echoes.Echoes;
+            if (echoes.Count == 0)
+            {
+                GUILayout.Label("No echoes — press R to rewind", _labelStyle);
+            }
+            else
+            {
+                for (int i = 0; i < echoes.Count; i++)
+                {
+                    EchoPlayback echo = echoes[i];
+                    string state = !echo.IsAlive
+                        ? "DEAD"
+                        : (echo.IsFinished ? "DONE" : "PLAYING");
+
+                    GUILayout.Label(
+                        string.Format(
+                            "Echo {0}: {1}   {2:0.0}s left",
+                            echo.Id,
+                            state,
+                            echo.RemainingSeconds),
+                        _labelStyle);
+                }
+            }
+
+            GUILayout.Space(4f);
+            GUILayout.Label("R rewind · Shift sneak · Wheel zoom", _labelStyle);
             GUILayout.EndArea();
         }
     }

@@ -39,7 +39,13 @@ namespace Game.Domain
             : this(LaserGateMode.Periodic, 2f, 3f, 0f)
         {
         }
-
+        /// <summary>
+        /// 激光门的属性
+        /// </summary>
+        /// <param name="mode"></param>
+        /// <param name="onDuration"></param>
+        /// <param name="offDuration"></param>
+        /// <param name="phaseOffset"></param>
         public LaserGate(
             LaserGateMode mode,
             float onDuration,
@@ -63,7 +69,7 @@ namespace Game.Domain
             {
                 return;
             }
-
+            //状态为开->激光
             if (_mode == LaserGateMode.AlwaysOn)
             {
                 IsActive = true;

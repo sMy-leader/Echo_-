@@ -1,3 +1,4 @@
+using System;
 using Game.Core;
 
 namespace Game.Domain
@@ -15,6 +16,22 @@ namespace Game.Domain
 
         public int Id { get; }
         public int FrameCount => _frames.Length;
+
+        /// <summary>
+        /// 当前播放游标。0 表示停在起点，FrameCount 表示播完。
+        /// 时间轴 UI 需要它来算“还剩多少帧”。
+        /// </summary>
+        public int Cursor => _cursor;
+
+        /// <summary>
+        /// 剩余帧数，供 Tab 时间轴显示“这个残影还剩多久”。
+        /// </summary>
+        public int RemainingFrames => Math.Max(0, _frames.Length - _cursor);
+
+        /// <summary>
+        /// 剩余秒数，按固定 60Hz 换算；只用于表现，不参与回放判定。
+        /// </summary>
+        public float RemainingSeconds => RemainingFrames * GameConstants.TickDelta;
 
         /// <summary>
         /// 已经播放完全部帧。注意：EchoManager 会在“下一 tick”才移除它，

@@ -1,24 +1,25 @@
 {
-  "name": "Game.Presentation",
-  "rootNamespace": "Game.Presentation",
-  "references": [
-    "Game.Core",
-    "Game.Domain",
-    "Game.Application",
-    "Game.Framework",
-    "Game.Infrastructure",
-    "Unity.InputSystem",
-    "UnityEngine.UI",
-    "Unity.TextMeshPro",
-    "Unity.Cinemachine"
-  ],
-  "includePlatforms": [],
-  "excludePlatforms": [],
-  "allowUnsafeCode": false,
-  "overrideReferences": false,
-  "precompiledReferences": [],
-  "autoReferenced": false,
-  "defineConstraints": [],
-  "versionDefines": [],
-  "noEngineReferences": false
+    "name": "Game.Presentation",
+    "rootNamespace": "Game.Presentation",
+    "references": [
+        "Game.Core",
+        "Game.Domain",
+        "Game.Application",
+        "Game.Framework",
+        "Game.Infrastructure",
+        "Unity.InputSystem",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro",
+        "Unity.Cinemachine",
+        "UniTask"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

@@ -17,7 +17,7 @@ namespace Game.Presentation
         public Color portalColor = new Color(0.2f, 0.9f, 1f);
 
         /// <summary>
-        /// 只比较 XZ 平面距离；Y 用宽松范围，避免地面/台阶高度差漏判。
+        /// 只比较 XZ 平面距离；Y 用宽松范围，避免地面/台阶高度差漏判。（feetPos是玩家的位置）
         /// </summary>
         public bool Contains(Vec3 feetPosition)
         {

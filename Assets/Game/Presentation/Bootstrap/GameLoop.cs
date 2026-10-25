@@ -48,7 +48,7 @@ namespace Game.Presentation
         private float _accumulator;// 累积真实时间，驱动固定 tick 循环。
         private float _failureCooldown;
         private Transform _cameraTransform;
-        private bool _portalTriggered;
+        private bool _portalTriggered;//传送门触发
 
         /// <summary>
         /// 在 Awake 建 Session，保证第一帧 Update 之前已经有检查点。
@@ -201,7 +201,7 @@ namespace Game.Presentation
                 // 激光命中在守卫之后判定，避免同一 tick 的失败流程重复触发。
                 CheckLaserHits();
 
-                // 传送门只触发一次；玩家没有 Collider，所以用几何包含判断。
+                // 传送门只触发一次；玩家没有 Collider，所以用几何包含判断。（需要保证压力板正在处于被激活状态）
                 if (!_portalTriggered
                     && levelPortal != null
                     && levelPortal.Contains(_session.Player.Position)

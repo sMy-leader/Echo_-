@@ -1,7 +1,8 @@
+using System;
 using System.Collections;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-
 namespace Game.Presentation
 {
     /// <summary>
@@ -50,39 +51,39 @@ namespace Game.Presentation
             DontDestroyOnLoad(gameObject);
         }
 
-        /// <summary>
-        /// 异步加载场景。重复点击会被 IsLoading 挡掉，避免并发加载。
-        /// </summary>
-        public void LoadScene(string sceneName)
+        // 场景加载入口：推荐返回 UniTask，外部可选择 await 调用；若要完全兼容原void调用，可改为 async void
+        public async UniTask LoadScene(string sceneName)
         {
             if (_isLoading || string.IsNullOrEmpty(sceneName))
             {
                 return;
             }
 
-            StartCoroutine(LoadRoutine(sceneName));
+            // 替代原 StartCoroutine，直接 await 异步方法
+            await LoadRoutine(sceneName);
         }
 
-        private IEnumerator LoadRoutine(string sceneName)
+        // 核心加载逻辑：协程 → async UniTask 异步方法
+        private async UniTask LoadRoutine(string sceneName)
         {
             _isLoading = true;
             _fade = 0f;
 
-            // 先把画面压黑再切换，避免场景加载瞬间露出空白。
-            yield return new WaitForSecondsRealtime(0.15f);
+            // 先把画面压黑再切换，避免场景加载瞬间露出空白
+            // 对应原 WaitForSecondsRealtime：ignoreTimeScale = true 表示不受时间缩放影响
+            await UniTask.Delay(TimeSpan.FromSeconds(1f), ignoreTimeScale: true);
 
             AsyncOperation op = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Single);
             if (op == null)
             {
                 _isLoading = false;
                 Debug.LogError("LevelFlow: failed to load scene " + sceneName);
-                yield break;
+                return;
             }
 
-            while (!op.isDone)
-            {
-                yield return null;
-            }
+            // 等价于原 while (!op.isDone) { yield return null; }
+            // UniTask 原生支持直接 await AsyncOperation，自动等待加载完成
+            await op;
 
             _isLoading = false;
         }

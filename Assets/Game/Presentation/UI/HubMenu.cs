@@ -37,6 +37,7 @@ namespace Game.Presentation
             GUILayout.Label("ECHO / 残响", _titleStyle);
             GUILayout.Space(12f);
 
+            //接入Levelflow单例进行场景加载
             if (GUILayout.Button("Level 00 — 教学", _buttonStyle, GUILayout.Height(44f)))
             {
                 LevelFlow.Instance.LoadScene("Level_00");

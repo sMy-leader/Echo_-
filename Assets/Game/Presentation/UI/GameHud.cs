@@ -15,9 +15,11 @@ namespace Game.Presentation
         private GameSession _session;
         private GuardSystem _guards;
         private GUIStyle _labelStyle;
+        private GUIStyle _promptStyle;
         private string _statusMessage;
         private float _statusTime;
         private bool _timelineVisible;
+        private string _interactionPrompt;
 
         public void Bind(GameSession session)
         {
@@ -49,6 +51,14 @@ namespace Game.Presentation
         public void SetTimelineVisible(bool visible)
         {
             _timelineVisible = visible;
+        }
+
+        /// <summary>
+        /// 靠近拉杆等交互物时的提示；空字符串表示隐藏。
+        /// </summary>
+        public void SetInteractionPrompt(string prompt)
+        {
+            _interactionPrompt = prompt;
         }
 
         private void Update()
@@ -135,6 +145,24 @@ namespace Game.Presentation
             if (_timelineVisible)
             {
                 DrawTimeline();
+            }
+
+            if (!string.IsNullOrEmpty(_interactionPrompt))
+            {
+                if (_promptStyle == null)
+                {
+                    _promptStyle = new GUIStyle(GUI.skin.box)
+                    {
+                        fontSize = 20,
+                        alignment = TextAnchor.MiddleCenter,
+                        normal = { textColor = Color.white }
+                    };
+                }
+
+                GUI.Box(
+                    new Rect(Screen.width * 0.5f - 130f, Screen.height - 76f, 260f, 42f),
+                    _interactionPrompt,
+                    _promptStyle);
             }
         }
 

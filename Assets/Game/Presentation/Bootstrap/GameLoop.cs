@@ -48,6 +48,7 @@ namespace Game.Presentation
         private PhysicsVisionWorld _vision;
         private InteractionService _interactions;
         private bool _interactHeld;
+        private readonly Dictionary<int, bool> _echoInteractHeld = new Dictionary<int, bool>();
         private readonly List<PerceptionTarget> _perceptionTargets = new List<PerceptionTarget>();
         private float _accumulator;// 累积真实时间，驱动固定 tick 循环。
         private float _failureCooldown;
@@ -217,6 +218,10 @@ namespace Game.Presentation
 
                 _session.Tick(GameConstants.TickDelta, input);//开始记录玩家和残影的移动—（打断点进去看）
 
+                // 残影的 Interact 状态是轨迹回放的一部分；用边沿检测避免每帧重复 toggle。
+                HandleEchoInteractions();
+                UpdateInteractionPrompt();
+
                 // 玩家/残影移动完之后再让守卫感知，保证目标位置是本 tick 的。
                 _session.CollectPerceptionTargets(_perceptionTargets);
                 _guards.Tick(GameConstants.TickDelta, _perceptionTargets, _vision);//不断加入列表刷新帧，让守卫感知到玩家和残影的位置->System
@@ -302,7 +307,13 @@ namespace Game.Presentation
 
             if (door != null)
             {
-                door.SetOpen(_session.Plate.IsActive || (lever != null && lever.IsOn));
+                bool leverReady = lever == null || lever.IsOn;
+                door.SetOpen(_session.Plate.IsActive && leverReady);
+            }
+
+            if (lever != null)
+            {
+                lever.SetPowered(_session.Plate.IsActive);
             }
 
             SyncEchoViews(alpha);
@@ -390,6 +401,49 @@ namespace Game.Presentation
                 wish.z,
                 (InputButtons)input.Buttons,
                 input.YawDegrees);
+        }
+
+        /// <summary>
+        /// 残影进入 Interact 状态时触发拉杆；只触发一次，避免按住 E 时反复开关。
+        /// </summary>
+        private void HandleEchoInteractions()
+        {
+            if (_interactions == null)
+            {
+                return;
+            }
+
+            IReadOnlyList<EchoPlayback> echoes = _session.Echoes.Echoes;
+            for (int i = 0; i < echoes.Count; i++)
+            {
+                EchoPlayback echo = echoes[i];
+                bool pressed = echo.IsAlive && echo.Current.EchoState == EchoState.Interact;
+                bool wasPressed = _echoInteractHeld.TryGetValue(echo.Id, out bool held) && held;
+
+                if (pressed && !wasPressed)
+                {
+                    _interactions.TryInteract(
+                        new PerceptionTarget(echo.Id, echo.CurrentPosition, false),
+                        true);
+                }
+
+                _echoInteractHeld[echo.Id] = pressed;
+            }
+        }
+
+        /// <summary>
+        /// 玩家靠近拉杆等交互物时更新 HUD 提示；每 tick 只读位置，不改玩法状态。
+        /// </summary>
+        private void UpdateInteractionPrompt()
+        {
+            if (hud == null || _interactions == null)
+            {
+                return;
+            }
+
+            PerceptionTarget player = new PerceptionTarget(0, _session.Player.Position, true);
+            IInteractable nearest = _interactions.FindNearest(player);
+            hud.SetInteractionPrompt(nearest != null ? nearest.Prompt : null);
         }
 
         /// <summary>

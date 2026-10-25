@@ -29,6 +29,21 @@ namespace Game.Application
                 return false;
             }
 
+            IInteractable best = FindNearest(actor);
+            if (best == null)
+            {
+                return false;
+            }
+
+            best.Interact(actor.Id);
+            return true;
+        }
+
+        /// <summary>
+        /// 找 actor 当前可交互范围内最近的交互物；HUD 提示和 E 键共用这一套判断。
+        /// </summary>
+        public IInteractable FindNearest(PerceptionTarget actor)
+        {
             IInteractable best = null;
             float bestSqr = float.MaxValue;
 
@@ -55,13 +70,7 @@ namespace Game.Application
                 }
             }
 
-            if (best == null)
-            {
-                return false;
-            }
-
-            best.Interact(actor.Id);
-            return true;
+            return best;
         }
     }
 }

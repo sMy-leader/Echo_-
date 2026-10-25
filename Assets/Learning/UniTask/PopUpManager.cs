@@ -18,6 +18,7 @@ public class PopupManager : MonoBehaviour
         _destroyCts = new CancellationTokenSource();
     }
 
+    //生命周期结束后自动销毁最旧的页面
     private void OnDestroy()
     {
         _destroyCts.Cancel();

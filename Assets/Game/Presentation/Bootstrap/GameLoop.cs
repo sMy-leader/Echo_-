@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using Game.Application;
 using Game.Core;
 using Game.Domain;
@@ -28,6 +29,7 @@ namespace Game.Presentation
         public Material echoVfxMaterial;
         public LaserGateView laserGate;
         public LevelPortalView levelPortal;
+        public LeverView lever;
         public GameHud hud;
 
         [Header("Camera movement")]
@@ -44,6 +46,8 @@ namespace Game.Presentation
         private GameSession _session;
         private GuardSystem _guards;
         private PhysicsVisionWorld _vision;
+        private InteractionService _interactions;
+        private bool _interactHeld;
         private readonly List<PerceptionTarget> _perceptionTargets = new List<PerceptionTarget>();
         private float _accumulator;// 累积真实时间，驱动固定 tick 循环。
         private float _failureCooldown;
@@ -120,6 +124,17 @@ namespace Game.Presentation
                 hud.BindGuards(_guards);
             }
 
+            _interactions = new InteractionService();
+            if (lever == null)
+            {
+                lever = Object.FindAnyObjectByType<LeverView>();
+            }
+
+            if (lever != null)
+            {
+                _interactions.Add(lever);
+            }
+
             //设置摄像机的位置保证固定
             Camera mainCamera = Camera.main;
             if (mainCamera == null)
@@ -183,6 +198,17 @@ namespace Game.Presentation
                     hud.SetTimelineVisible(input.Has(InputButtons.Timeline));
                 }
 
+                // E 是边沿交互：按住不会重复 toggle。
+                bool interactPressed = input.Has(InputButtons.Interact);
+                if (interactPressed && !_interactHeld && _interactions != null)
+                {
+                    _interactions.TryInteract(
+                        new PerceptionTarget(0, _session.Player.Position, true),
+                        true);
+                }
+
+                _interactHeld = interactPressed;
+
                 // 先处理回溯，再 Tick；这样回溯后的第一帧会从检查点开始录制。
                 if (input.Has(InputButtons.Rewind))
                 {
@@ -205,10 +231,11 @@ namespace Game.Presentation
                 if (!_portalTriggered
                     && levelPortal != null
                     && levelPortal.Contains(_session.Player.Position)
-                    && (!levelPortal.requirePlateActive || _session.Plate.IsActive))
+                    && (!levelPortal.requirePlateActive || _session.Plate.IsActive)
+                    && (levelPortal.requiredLever == null || levelPortal.requiredLever.IsOn))
                 {
                     _portalTriggered = true;
-                    LevelFlow.Instance.LoadScene(levelPortal.nextScene);
+                    LevelFlow.Instance.LoadScene(levelPortal.nextScene).Forget();
                 }
 
                 // 掉出场景的兜底：通过统一的失败流程回到检查点。
@@ -275,7 +302,7 @@ namespace Game.Presentation
 
             if (door != null)
             {
-                door.SetOpen(_session.Plate.IsActive);
+                door.SetOpen(_session.Plate.IsActive || (lever != null && lever.IsOn));
             }
 
             SyncEchoViews(alpha);

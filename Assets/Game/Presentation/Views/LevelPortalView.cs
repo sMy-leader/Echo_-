@@ -14,6 +14,7 @@ namespace Game.Presentation
         public string nextScene;
         public float radius = 1.2f;
         public bool requirePlateActive = true;
+        public LeverView requiredLever;
         public Color portalColor = new Color(0.2f, 0.9f, 1f);
 
         /// <summary>

@@ -1,3 +1,4 @@
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace Game.Presentation
@@ -40,17 +41,17 @@ namespace Game.Presentation
             //接入Levelflow单例进行场景加载
             if (GUILayout.Button("Level 00 — 教学", _buttonStyle, GUILayout.Height(44f)))
             {
-                LevelFlow.Instance.LoadScene("Level_00");
+                LevelFlow.Instance.LoadScene("Level_00").Forget();
             }
 
             if (GUILayout.Button("Level 01 — 室外 / 激光", _buttonStyle, GUILayout.Height(44f)))
             {
-                LevelFlow.Instance.LoadScene("Level_01");
+                LevelFlow.Instance.LoadScene("Level_01").Forget();
             }
 
             if (GUILayout.Button("Level 02 — 室内第三人称原型", _buttonStyle, GUILayout.Height(44f)))
             {
-                LevelFlow.Instance.LoadScene("Level_02_InteriorPrototype");
+                LevelFlow.Instance.LoadScene("Level_02_InteriorPrototype").Forget();
             }
 
             GUILayout.Space(8f);

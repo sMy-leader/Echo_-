@@ -1,3 +1,4 @@
+using Game.Application;
 using Game.Bootstrap;
 using Game.Presentation;
 using UnityEditor;
@@ -23,9 +24,9 @@ namespace Game.Editor
         {
             ConfigureBoot();
             ConfigureHub();
-            ConfigurePortal("Assets/Scenes/Level_00.unity", "Level_01", new Vector3(0f, 0.1f, 9f));
-            ConfigurePortal("Assets/Scenes/Level_01.unity", "Level_02_InteriorPrototype", new Vector3(0f, 0.1f, 10f));
-            ConfigurePortal("Assets/Scenes/Level_02_InteriorPrototype.unity", "MainMenu", new Vector3(0f, 0.1f, 10f));
+            ConfigurePortal("Assets/Scenes/Level_00.unity", "Level_01", new Vector3(0f, 0.1f, 9f), LevelIds.Level00);
+            ConfigurePortal("Assets/Scenes/Level_01.unity", "Level_02_InteriorPrototype", new Vector3(0f, 0.1f, 10f), LevelIds.Level01);
+            ConfigurePortal("Assets/Scenes/Level_02_InteriorPrototype.unity", "MainMenu", new Vector3(0f, 0.1f, 10f), LevelIds.Level02);
 
             AssetDatabase.SaveAssets();
             Debug.Log("ECHO flow wiring built: Boot -> MainMenu -> Level_00 -> Level_01 -> Level_02");
@@ -69,7 +70,7 @@ namespace Game.Editor
             EditorSceneManager.SaveScene(scene);
         }
 
-        private static void ConfigurePortal(string scenePath, string nextScene, Vector3 position)
+        private static void ConfigurePortal(string scenePath, string nextScene, Vector3 position, string completedLevelId)
         {
             Scene scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
@@ -89,6 +90,7 @@ namespace Game.Editor
 
             LevelPortalView view = portal.AddComponent<LevelPortalView>();
             view.nextScene = nextScene;
+            view.completedLevelId = completedLevelId;
             view.requirePlateActive = true;
 
             GameLoop loop = Object.FindAnyObjectByType<GameLoop>();

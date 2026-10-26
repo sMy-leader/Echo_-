@@ -200,9 +200,11 @@ namespace Game.Presentation
                 }
 
                 // E 是边沿交互：按住不会重复 toggle。
+                //通过这里进行是否按下E交互->触发HandleEchoInteract来同步残影行为
                 bool interactPressed = input.Has(InputButtons.Interact);
                 if (interactPressed && !_interactHeld && _interactions != null)
                 {
+                    //尝试交互->找最近的交互物->进入交互接口
                     _interactions.TryInteract(
                         new PerceptionTarget(0, _session.Player.Position, true),
                         true);
@@ -240,6 +242,11 @@ namespace Game.Presentation
                     && (levelPortal.requiredLever == null || levelPortal.requiredLever.IsOn))
                 {
                     _portalTriggered = true;
+                    if (!string.IsNullOrEmpty(levelPortal.completedLevelId))
+                    {
+                        LevelFlow.Instance.MarkCompleted(levelPortal.completedLevelId);
+                    }
+
                     LevelFlow.Instance.LoadScene(levelPortal.nextScene).Forget();
                 }
 
@@ -417,6 +424,7 @@ namespace Game.Presentation
             for (int i = 0; i < echoes.Count; i++)
             {
                 EchoPlayback echo = echoes[i];
+                //残影是否在交互->PlayerMotor里的tick->通过玩家是否点按交互来同步残影的行为
                 bool pressed = echo.IsAlive && echo.Current.EchoState == EchoState.Interact;
                 bool wasPressed = _echoInteractHeld.TryGetValue(echo.Id, out bool held) && held;
 
@@ -440,7 +448,7 @@ namespace Game.Presentation
             {
                 return;
             }
-
+            //确定当前玩家位置->找最近的交互物->显示提示
             PerceptionTarget player = new PerceptionTarget(0, _session.Player.Position, true);
             IInteractable nearest = _interactions.FindNearest(player);
             hud.SetInteractionPrompt(nearest != null ? nearest.Prompt : null);

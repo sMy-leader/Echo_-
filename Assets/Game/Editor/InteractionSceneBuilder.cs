@@ -1,3 +1,4 @@
+using Game.Application;
 using Game.Presentation;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -53,6 +54,7 @@ namespace Game.Editor
                     // L2 教学：压力板供电 + 拉杆锁存，两者同时满足才可用。
                     portal.requirePlateActive = true;
                     portal.requiredLever = lever;
+                    portal.completedLevelId = LevelIds.Level02;
                 }
             }
 

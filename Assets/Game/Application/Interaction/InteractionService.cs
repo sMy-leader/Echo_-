@@ -12,6 +12,7 @@ namespace Game.Application
     /// </summary>
     public sealed class InteractionService
     {
+        //可交互物的列表（传入契约参数的接口）
         private readonly List<IInteractable> _interactables = new List<IInteractable>();
 
         public void Add(IInteractable interactable)
@@ -49,6 +50,7 @@ namespace Game.Application
 
             for (int i = 0; i < _interactables.Count; i++)
             {
+                //candidate为拉杆（可交互）
                 IInteractable candidate = _interactables[i];
                 if (!candidate.CanInteract(actor.Id))
                 {

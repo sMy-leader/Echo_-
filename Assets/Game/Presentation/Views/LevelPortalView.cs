@@ -12,6 +12,7 @@ namespace Game.Presentation
     public sealed class LevelPortalView : MonoBehaviour
     {
         public string nextScene;
+        public string completedLevelId;
         public float radius = 1.2f;
         public bool requirePlateActive = true;
         public LeverView requiredLever;

@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using Cysharp.Threading.Tasks;
+using Game.Application;
+using Game.Infrastructure;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 namespace Game.Presentation
@@ -36,8 +38,15 @@ namespace Game.Presentation
         private static LevelFlow _instance;
         private bool _isLoading;
         private float _fade;
+        private ProgressService _progress;
 
         public bool IsLoading => _isLoading;
+
+        /// <summary>
+        /// 进度服务按需创建；先 PlayerPrefs，后续替换为正式存档实现。
+        /// </summary>
+        public ProgressService Progress =>
+            _progress ??= new ProgressService(new PlayerPrefsProgressStore());
 
         private void Awake()
         {
@@ -61,6 +70,14 @@ namespace Game.Presentation
 
             // 替代原 StartCoroutine，直接 await 异步方法
             await LoadRoutine(sceneName);
+        }
+
+        /// <summary>
+        /// 关卡完成时写进度；传送门在加载下一关前调用。
+        /// </summary>
+        public void MarkCompleted(string levelId)
+        {
+            Progress.MarkCompleted(levelId);
         }
 
         // 核心加载逻辑：协程 → async UniTask 异步方法

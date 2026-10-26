@@ -132,7 +132,13 @@ namespace Game.Editor
                 return;
             }
 
-            Scene scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            // 关键：场景构建器正在当前场景里刚生成对象时，不能再 OpenScene 同一个路径，
+            // 否则会从磁盘重新加载，丢掉尚未保存的板子/门/机关。
+            Scene scene = EditorSceneManager.GetActiveScene();
+            if (scene.path != scenePath)
+            {
+                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            }
 
             DestroyIfExists("ThirdPersonCameraRig");
             DestroyIfExists("ThirdPersonCameraRig(Clone)");

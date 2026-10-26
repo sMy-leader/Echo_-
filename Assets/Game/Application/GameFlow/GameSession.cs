@@ -29,6 +29,11 @@ namespace Game.Application
         public ActivationAggregator Plate { get; } = new ActivationAggregator();
 
         /// <summary>
+        /// L3 中央时间锁：三条支线各提供一个激活源，三源同时存在才开门。
+        /// </summary>
+        public TimeLock TimeLock { get; } = new TimeLock(3);
+
+        /// <summary>
         /// 机关门激光的时间窗口。默认 2s 开 / 3s 关；
         /// 几何命中由表现层用 LaserGateView 判断。
         /// </summary>
@@ -75,6 +80,7 @@ namespace Game.Application
             EchoRecorder.Clear();
             Plate.Reset();
             Laser.Reset();
+            TimeLock.Reset();
         }
 
         /// <summary>
@@ -100,6 +106,7 @@ namespace Game.Application
             EchoRecorder.Clear();
             Plate.Reset();
             Laser.Reset();
+            TimeLock.Reset();
             _rewindCooldown = GameConstants.RewindCooldown;
             return true;
         }

@@ -32,6 +32,9 @@ namespace Game.Editor
             "L3_Branch_West",
             "L3_Branch_East",
             "L3_Branch_North",
+            "L3_Plate_West",
+            "L3_Plate_East",
+            "L3_Plate_North",
             "L3_Core",
             "L3_FlowPortal"
         };
@@ -170,9 +173,10 @@ namespace Game.Editor
                 new Color(0.24f, 0.26f, 0.31f),
                 material);
 
-            BuildBranch("L3_Branch_West", new Vector3(-21f, 0f, 0f), material);
-            BuildBranch("L3_Branch_East", new Vector3(21f, 0f, 0f), material);
+            BuildBranch("L3_Branch_West", new Vector3(-20f, 0f, 0f), material);
+            BuildBranch("L3_Branch_East", new Vector3(20f, 0f, 0f), material);
             BuildBranch("L3_Branch_North", new Vector3(0f, 0f, 18f), material);
+            BuildTimeLockPlates(material);
 
             L1SceneBuilder.CreateProBuilderBox(
                 "L3_Core",
@@ -182,12 +186,43 @@ namespace Game.Editor
                 material);
         }
 
+        /// <summary>
+        /// 三条支线各一块压力板；中央时间锁要求三块同时激活。
+        /// 板本身不挂 Collider，避免玩家胶囊扫掠被薄板挡住。
+        /// </summary>
+        private static void BuildTimeLockPlates(Material material)
+        {
+            // 三块板全部放在中央门之前，避免“门没开先要踩门后板”的死循环。
+            CreateTimeLockPlate("L3_Plate_West", new Vector3(-8f, 0.05f, 0f), material);
+            CreateTimeLockPlate("L3_Plate_East", new Vector3(8f, 0.05f, 0f), material);
+            CreateTimeLockPlate("L3_Plate_North", new Vector3(0f, 0.05f, 8f), material);
+        }
+
+        private static void CreateTimeLockPlate(string name, Vector3 position, Material material)
+        {
+            GameObject plate = L1SceneBuilder.CreateProBuilderBox(
+                name,
+                position,
+                new Vector3(2f, 0.1f, 2f),
+                new Color(0.95f, 0.75f, 0.2f),
+                material);
+
+            Collider collider = plate.GetComponent<Collider>();
+            if (collider != null)
+            {
+                Object.DestroyImmediate(collider);
+            }
+
+            PressurePlateView view = plate.AddComponent<PressurePlateView>();
+            view.halfExtents = new Vector3(1f, 0.5f, 1f);
+        }
+
         private static void BuildBranch(string name, Vector3 center, Material material)
         {
             L1SceneBuilder.CreateProBuilderBox(
                 name,
                 center + new Vector3(0f, -0.1f, 0f),
-                new Vector3(8f, 0.2f, 8f),
+                new Vector3(8f, 0.2f, 12f),
                 new Color(0.18f, 0.2f, 0.24f),
                 material);
         }
@@ -196,7 +231,7 @@ namespace Game.Editor
         {
             GameObject portal = M0SceneBuilder.CreateCube(
                 "L3_FlowPortal",
-                new Vector3(0f, 0.1f, 10f),
+                new Vector3(0f, 0.1f, 12.5f),
                 new Vector3(1.4f, 2.2f, 1.4f),
                 new Color(0.1f, 0.9f, 1f),
                 keepCollider: false,
@@ -205,13 +240,46 @@ namespace Game.Editor
             LevelPortalView view = portal.AddComponent<LevelPortalView>();
             view.nextScene = "MainMenu";
             view.completedLevelId = LevelIds.Level03;
-            view.requirePlateActive = true;
+            view.requirePlateActive = false;
 
             GameLoop loop = Object.FindAnyObjectByType<GameLoop>();
             if (loop != null)
             {
                 loop.levelPortal = view;
             }
+
+            ConfigureTimeLock(loop);
+        }
+
+        private static void ConfigureTimeLock(GameLoop loop)
+        {
+            if (loop == null)
+            {
+                return;
+            }
+
+            GameObject doorObject = GameObject.Find("L1_Door");
+            DoorView timeLockDoor = doorObject != null ? doorObject.GetComponent<DoorView>() : null;
+            PressurePlateView[] plates = new PressurePlateView[3];
+            string[] names = { "L3_Plate_West", "L3_Plate_East", "L3_Plate_North" };
+            for (int i = 0; i < names.Length; i++)
+            {
+                GameObject plateObject = GameObject.Find(names[i]);
+                plates[i] = plateObject != null ? plateObject.GetComponent<PressurePlateView>() : null;
+            }
+
+            // L3 不再使用 L1 的单板/单门逻辑，改由三源 TimeLock 驱动同一扇门。
+            // 同时清掉 L1 遗留压力板，避免场景里出现第四块“踩了没反应”的板。
+            GameObject legacyPlate = GameObject.Find("L1_Plate");
+            if (legacyPlate != null)
+            {
+                Object.DestroyImmediate(legacyPlate);
+            }
+
+            loop.pressurePlate = null;
+            loop.door = null;
+            loop.timeLockPlates = plates;
+            loop.timeLockDoor = timeLockDoor;
         }
 
         private static void EnsureLight()

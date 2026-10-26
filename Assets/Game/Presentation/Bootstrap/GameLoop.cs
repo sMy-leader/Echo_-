@@ -24,6 +24,8 @@ namespace Game.Presentation
         public CameraRig cameraRig;
         public PressurePlateView pressurePlate;
         public DoorView door;
+        public PressurePlateView[] timeLockPlates;
+        public DoorView timeLockDoor;
         public GuardView guardView;
         public GameObject echoVisualPrefab;
         public Material echoVfxMaterial;
@@ -264,6 +266,7 @@ namespace Game.Presentation
 
                 // 玩家和残影都移动完之后再统计，压力板看到的才是本 tick 的位置。
                 _session.TickPlate(GameConstants.TickDelta, CountPlateActivators());
+                UpdateTimeLock();
             }
 
             // 如果 8 步还不够，丢弃剩余时间，宁可慢一点也不要继续追帧。
@@ -506,6 +509,51 @@ namespace Game.Presentation
             if (hud != null)
             {
                 hud.ShowStatus("被发现 — 时间回溯", 0.9f);
+            }
+        }
+
+        /// <summary>
+        /// 更新 L3 时间锁：每块板独立统计“本体 + 所有存活残影”，
+        /// 然后写入固定槽位。这样做的好处是残影死亡/消散后，
+        /// 下一 tick 自动把槽位置 false，不需要额外的清理回调。
+        /// </summary>
+        private void UpdateTimeLock()
+        {
+            if (timeLockPlates == null || timeLockPlates.Length == 0)
+            {
+                return;
+            }
+
+            int slotCount = _session.TimeLock.RequiredCount;
+            for (int i = 0; i < timeLockPlates.Length && i < slotCount; i++)
+            {
+                PressurePlateView plate = timeLockPlates[i];
+                if (plate == null)
+                {
+                    continue;
+                }
+
+                bool active = plate.Contains(_session.Player.Position);
+                if (!active)
+                {
+                    for (int e = 0; e < _session.Echoes.Echoes.Count; e++)
+                    {
+                        EchoPlayback echo = _session.Echoes.Echoes[e];
+                        if (echo.IsAlive && plate.Contains(echo.CurrentPosition))
+                        {
+                            active = true;
+                            break;
+                        }
+                    }
+                }
+
+                plate.SetActive(active);
+                _session.TimeLock.SetSource(i, active);
+            }
+
+            if (timeLockDoor != null)
+            {
+                timeLockDoor.SetOpen(_session.TimeLock.IsOpen);
             }
         }
 

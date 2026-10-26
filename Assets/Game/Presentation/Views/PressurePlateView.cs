@@ -55,7 +55,10 @@ namespace Game.Presentation
         {
             if (_renderer != null)
             {
-                _renderer.material.color = active ? activeColor : inactiveColor;
+                Color color = active ? activeColor : inactiveColor;
+                _renderer.material.color = color;
+                // URP Lit 实际使用 _BaseColor；只改 color 会保持白色。
+                _renderer.material.SetColor("_BaseColor", color);
             }
         }
     }

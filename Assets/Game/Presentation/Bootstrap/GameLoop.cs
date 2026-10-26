@@ -222,7 +222,7 @@ namespace Game.Presentation
 
                 // 残影的 Interact 状态是轨迹回放的一部分；用边沿检测避免每帧重复 toggle。
                 HandleEchoInteractions();
-                UpdateInteractionPrompt();
+                UpdateInteractionPrompt();//更新交互提示词
 
                 // 玩家/残影移动完之后再让守卫感知，保证目标位置是本 tick 的。
                 _session.CollectPerceptionTargets(_perceptionTargets);
@@ -244,7 +244,7 @@ namespace Game.Presentation
                     _portalTriggered = true;
                     if (!string.IsNullOrEmpty(levelPortal.completedLevelId))
                     {
-                        LevelFlow.Instance.MarkCompleted(levelPortal.completedLevelId);
+                        LevelFlow.Instance.MarkCompleted(levelPortal.completedLevelId);//根据关卡具体哪个传送门的ID->标记为完成此关卡
                     }
 
                     LevelFlow.Instance.LoadScene(levelPortal.nextScene).Forget();

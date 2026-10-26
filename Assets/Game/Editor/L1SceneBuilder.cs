@@ -91,6 +91,9 @@ namespace Game.Editor
             BuildCharacters(vfxMaterial);
             BuildGameRoot(vfxMaterial);
 
+            // 重建 L2 后自动应用统一第三人称相机，避免退回俯视 CameraRig。
+            ThirdPersonCameraBuilder.EnsureAndApplyToActiveScene();
+
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             AddToBuildSettings();

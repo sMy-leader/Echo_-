@@ -9,6 +9,7 @@
     "Game.Infrastructure",
     "Game.Presentation",
     "Game.Bootstrap",
+    "Unity.Cinemachine",
     "GUID:1826c0224c0d048b88112c79bbb0cd85"
   ],
   "includePlatforms": [

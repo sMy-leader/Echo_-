@@ -38,7 +38,7 @@ namespace Game.Presentation
         private static LevelFlow _instance;
         private bool _isLoading;
         private float _fade;
-        private ProgressService _progress;
+        private ProgressService _progress;//拿流程的对象
 
         public bool IsLoading => _isLoading;
 

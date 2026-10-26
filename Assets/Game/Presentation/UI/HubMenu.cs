@@ -42,10 +42,7 @@ namespace Game.Presentation
             DrawLevelButton(LevelIds.Level00, "Level 00 — 教学", "Level_00");
             DrawLevelButton(LevelIds.Level01, "Level 01 — 室外 / 激光", "Level_01");
             DrawLevelButton(LevelIds.Level02, "Level 02 — 室内第三人称原型", "Level_02_InteriorPrototype");
-
-            GUI.enabled = false;
-            GUILayout.Button("Level 03 — 正式 Kit 关（待制作）", _buttonStyle, GUILayout.Height(44f));
-            GUI.enabled = true;
+            DrawLevelButton(LevelIds.Level03, "Level 03 — 综合关", "Level_03");
 
             GUILayout.Space(8f);
             if (GUILayout.Button("解锁全部（调试）", _buttonStyle, GUILayout.Height(32f)))
@@ -53,6 +50,7 @@ namespace Game.Presentation
                 LevelFlow.Instance.Progress.MarkCompleted(LevelIds.Level00);
                 LevelFlow.Instance.Progress.MarkCompleted(LevelIds.Level01);
                 LevelFlow.Instance.Progress.MarkCompleted(LevelIds.Level02);
+                LevelFlow.Instance.Progress.MarkCompleted(LevelIds.Level03);
             }
 
             if (GUILayout.Button("退出", _buttonStyle, GUILayout.Height(36f)))
@@ -63,6 +61,12 @@ namespace Game.Presentation
             GUILayout.EndArea();
         }
 
+        /// <summary>
+        /// 关卡选择按钮 用于做解锁和非解锁的逻辑
+        /// </summary>
+        /// <param name="levelId"></param>
+        /// <param name="label"></param>
+        /// <param name="sceneName"></param>
         private void DrawLevelButton(string levelId, string label, string sceneName)
         {
             bool unlocked = LevelFlow.Instance.Progress.IsUnlocked(levelId);

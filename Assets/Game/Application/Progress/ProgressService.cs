@@ -9,6 +9,7 @@ namespace Game.Application
     /// </summary>
     public sealed class ProgressService
     {
+        //关卡顺序数组
         private static readonly string[] Order =
         {
             LevelIds.Level00,

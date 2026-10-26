@@ -18,6 +18,7 @@ namespace Game.Infrastructure
 
         public void MarkCompleted(string levelId)
         {
+            //键->prefix+关卡ID  值：0->未完成 1->完成
             PlayerPrefs.SetInt(Prefix + levelId, 1);
             PlayerPrefs.Save();
         }

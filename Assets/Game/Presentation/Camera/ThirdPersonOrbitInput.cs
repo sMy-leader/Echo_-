@@ -21,7 +21,7 @@ namespace Game.Presentation
         [Header("Mouse")]
         public float yawSensitivity = 0.18f;
         public float pitchSensitivity = 0.15f;
-        public bool requireRightMouse = true;
+        public bool requireRightMouse = false;
 
         [Header("Pitch limits")]
         public float minPitch = -25f;

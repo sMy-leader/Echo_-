@@ -125,6 +125,10 @@ namespace Game.Presentation
             {
                 hud.Bind(_session);
                 hud.BindGuards(_guards);
+                hud.BindTimeLock(
+                    timeLockPlates != null && timeLockPlates.Length > 0
+                        ? _session.TimeLock
+                        : null);
             }
 
             _interactions = new InteractionService();

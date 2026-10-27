@@ -17,6 +17,13 @@ namespace Game.Presentation
         public Color activeColor = new Color(0.2f, 1f, 0.6f);
         public Color inactiveColor = new Color(0.9f, 0.75f, 0.2f);
 
+        [Header("Optional feedback (assets can be assigned later)")]
+        public AudioSource audioSource;
+        public AudioClip activateClip;
+        public AudioClip deactivateClip;
+        public ParticleSystem activateVfx;
+        public ParticleSystem deactivateVfx;
+
         private Renderer _renderer;
         private bool _active;
 
@@ -49,6 +56,26 @@ namespace Game.Presentation
 
             _active = active;
             ApplyColor(active);
+            PlayFeedback(active);
+        }
+
+        /// <summary>
+        /// 可选反馈：素材未导入时所有引用都是 null，直接跳过。
+        /// 以后在 Inspector 里拖 AudioClip/ParticleSystem 即可，不需要改代码。
+        /// </summary>
+        private void PlayFeedback(bool active)
+        {
+            AudioClip clip = active ? activateClip : deactivateClip;
+            if (audioSource != null && clip != null)
+            {
+                audioSource.PlayOneShot(clip);
+            }
+
+            ParticleSystem vfx = active ? activateVfx : deactivateVfx;
+            if (vfx != null)
+            {
+                vfx.Play();
+            }
         }
 
         private void ApplyColor(bool active)

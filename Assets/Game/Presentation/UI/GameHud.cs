@@ -20,6 +20,7 @@ namespace Game.Presentation
         private float _statusTime;
         private bool _timelineVisible;
         private string _interactionPrompt;
+        private TimeLock _timeLock;
 
         public void Bind(GameSession session)
         {
@@ -32,6 +33,14 @@ namespace Game.Presentation
         public void BindGuards(GuardSystem guards)
         {
             _guards = guards;
+        }
+
+        /// <summary>
+        /// 绑定 L3 时间锁；传 null 时 HUD 不显示时间锁行。
+        /// </summary>
+        public void BindTimeLock(TimeLock timeLock)
+        {
+            _timeLock = timeLock;
         }
 
         /// <summary>
@@ -108,6 +117,17 @@ namespace Game.Presentation
                     _session.Plate.IsActive ? "ON" : "off",
                     _session.RewindCooldown),
                 _labelStyle);
+
+            if (_timeLock != null)
+            {
+                GUILayout.Label(
+                    string.Format(
+                        "TimeLock: {0}/{1}{2}",
+                        _timeLock.ActiveCount,
+                        _timeLock.RequiredCount,
+                        _timeLock.IsOpen ? "  OPEN" : string.Empty),
+                    _labelStyle);
+            }
             GUILayout.Label(
                 string.Format("Grounded: {0}   Position: {1}",
                     _session.Player.IsGrounded ? "yes" : "no",

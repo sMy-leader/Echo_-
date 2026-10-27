@@ -204,7 +204,7 @@ Camera:
     height: 1
   near clip plane: 0.1
   far clip plane: 100
-  field of view: 45
+  field of view: 40
   orthographic: 0
   orthographic size: 10
   m_Depth: 0
@@ -230,8 +230,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7875541}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.4226183, y: 0, z: 0, w: 0.9063078}
-  m_LocalPosition: {x: 0, y: 16, z: -18}
+  m_LocalRotation: {x: 0.15216334, y: 0, z: 0, w: 0.9883554}
+  m_LocalPosition: {x: 0, y: 2.3693109, z: -10.549}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5776,6 +5776,34 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 959720126949990788, guid: 360fe213c3d65744ebed9aba93acb239, type: 3}
+      propertyPath: m_StreamingVersion
+      value: 20241001
+      objectReference: {fileID: 0}
+    - target: {fileID: 1942489066452010369, guid: 360fe213c3d65744ebed9aba93acb239, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 3.054235
+      objectReference: {fileID: 0}
+    - target: {fileID: 1942489066452010369, guid: 360fe213c3d65744ebed9aba93acb239, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -12.7223015
+      objectReference: {fileID: 0}
+    - target: {fileID: 1942489066452010369, guid: 360fe213c3d65744ebed9aba93acb239, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.9883554
+      objectReference: {fileID: 0}
+    - target: {fileID: 1942489066452010369, guid: 360fe213c3d65744ebed9aba93acb239, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.15216334
+      objectReference: {fileID: 0}
+    - target: {fileID: 1942489066452010369, guid: 360fe213c3d65744ebed9aba93acb239, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.000000003919222
+      objectReference: {fileID: 0}
+    - target: {fileID: 1942489066452010369, guid: 360fe213c3d65744ebed9aba93acb239, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -6.033881e-10
+      objectReference: {fileID: 0}
     - target: {fileID: 3708392062903465145, guid: 360fe213c3d65744ebed9aba93acb239, type: 3}
       propertyPath: m_Name
       value: ThirdPersonCameraRig

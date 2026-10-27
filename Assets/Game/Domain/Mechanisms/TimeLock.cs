@@ -40,6 +40,8 @@ namespace Game.Domain
                 return;
             }
 
+            //将激活的物体传入bool数组中
+            //通过索引判定->增加激活数
             _sources[index] = active;
             ActiveCount += active ? 1 : -1;
 

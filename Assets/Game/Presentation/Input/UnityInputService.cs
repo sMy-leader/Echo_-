@@ -83,7 +83,7 @@ namespace Game.Presentation
 
             _pauseHeld = pause;
 
-            return InputFrame.FromAxes(x, y, buttons);
+            return InputFrame.FromAxes(x, y, buttons);//最终返回玩家输入等数据作为采样后的帧数据
         }
     }
 }

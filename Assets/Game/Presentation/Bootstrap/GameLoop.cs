@@ -24,7 +24,7 @@ namespace Game.Presentation
         public CameraRig cameraRig;
         public PressurePlateView pressurePlate;
         public DoorView door;
-        public PressurePlateView[] timeLockPlates;
+        public PressurePlateView[] timeLockPlates;//时间锁的压力版
         public DoorView timeLockDoor;
         public GuardView guardView;
         public GameObject echoVisualPrefab;
@@ -548,9 +548,10 @@ namespace Game.Presentation
                 }
 
                 plate.SetActive(active);
-                _session.TimeLock.SetSource(i, active);
+                _session.TimeLock.SetSource(i, active);//将踩到的某一个压力板传入Timelock中->加入到RequiredCount
             }
 
+            //三源同开->开门
             if (timeLockDoor != null)
             {
                 timeLockDoor.SetOpen(_session.TimeLock.IsOpen);

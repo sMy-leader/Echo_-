@@ -102,6 +102,18 @@ namespace Game.Domain
         }
 
         /// <summary>
+        /// 上升降台时由表现层调用：只移动位置，保留 PreviousPosition 做插值。
+        /// 不在这里做重力/碰撞，平台本身已经负责地面支撑。
+        /// </summary>
+        public void MoveWithPlatform(Vec3 delta)
+        {
+            Position += delta;
+            PreviousPosition = Position;
+            VelocityY = 0f;
+            IsGrounded = true;
+        }
+
+        /// <summary>
         /// 回溯/检查点恢复：同时重置当前位置与“上一帧位置”，
         /// 避免表现层在恢复的第一帧从旧位置插值过来。
         /// </summary>

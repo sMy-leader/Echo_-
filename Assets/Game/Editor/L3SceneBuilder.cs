@@ -36,6 +36,8 @@ namespace Game.Editor
             "L3_Plate_East",
             "L3_Plate_North",
             "L3_Core",
+            "L3_UpperFloor",
+            "L3_Lift",
             "L3_FlowPortal"
         };
 
@@ -184,6 +186,22 @@ namespace Game.Editor
                 new Vector3(1.2f, 3f, 1.2f),
                 new Color(0.15f, 0.85f, 1f),
                 material);
+
+            BuildUpperFloor(material);
+        }
+
+        /// <summary>
+        /// 上层平台先做一块可站立的灰盒，后续再放上层守卫/机关。
+        /// 升降台把玩家从 y=0.1 送到 y=4.1。
+        /// </summary>
+        private static void BuildUpperFloor(Material material)
+        {
+            L1SceneBuilder.CreateProBuilderBox(
+                "L3_UpperFloor",
+                new Vector3(12f, 4f, 1f),
+                new Vector3(12f, 0.2f, 10f),
+                new Color(0.2f, 0.22f, 0.28f),
+                material);
         }
 
         /// <summary>
@@ -249,6 +267,37 @@ namespace Game.Editor
             }
 
             ConfigureTimeLock(loop);
+            ConfigureLift(loop);
+        }
+
+        private static void ConfigureLift(GameLoop loop)
+        {
+            if (loop == null)
+            {
+                return;
+            }
+
+            GameObject root = new GameObject("L3_Lift");
+            root.transform.position = new Vector3(12f, 0.1f, -6f);
+
+            GameObject platform = M0SceneBuilder.CreateCube(
+                "L3_LiftPlatform",
+                Vector3.zero,
+                new Vector3(3f, 0.2f, 3f),
+                new Color(0.2f, 0.8f, 1f),
+                keepCollider: true,
+                addColorView: false);
+            platform.transform.SetParent(root.transform, false);
+            platform.transform.localPosition = new Vector3(0f, -0.1f, 0f);
+
+            LiftView lift = root.AddComponent<LiftView>();
+            lift.bottomY = 0.1f;
+            lift.topY = 4.1f;
+            lift.speed = 1.6f;
+            lift.autoActivateOnStand = true;
+            lift.halfExtents = new Vector2(1.5f, 1.5f);
+
+            loop.lifts = new[] { lift };
         }
 
         private static void ConfigureTimeLock(GameLoop loop)

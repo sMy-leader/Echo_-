@@ -26,6 +26,7 @@ namespace Game.Presentation
         public DoorView door;
         public PressurePlateView[] timeLockPlates;//时间锁的压力版
         public DoorView timeLockDoor;
+        public LiftView[] lifts;
         public GuardView guardView;
         public GameObject echoVisualPrefab;
         public Material echoVfxMaterial;
@@ -221,7 +222,10 @@ namespace Game.Presentation
                 // 先处理回溯，再 Tick；这样回溯后的第一帧会从检查点开始录制。
                 if (input.Has(InputButtons.Rewind))
                 {
-                    _session.TryRewind();
+                    if (_session.TryRewind())
+                    {
+                        ResetLifts();
+                    }
                 }
 
                 _session.Tick(GameConstants.TickDelta, input);//开始记录玩家和残影的移动—（打断点进去看）
@@ -269,6 +273,7 @@ namespace Game.Presentation
                 }
 
                 // 玩家和残影都移动完之后再统计，压力板看到的才是本 tick 的位置。
+                UpdateLifts(GameConstants.TickDelta);
                 _session.TickPlate(GameConstants.TickDelta, CountPlateActivators());
                 UpdateTimeLock();
             }
@@ -504,6 +509,7 @@ namespace Game.Presentation
 
             _failureCooldown = 1.2f;
             _session.RestoreCheckpoint();
+            ResetLifts();
 
             if (cameraRig != null)
             {
@@ -513,6 +519,60 @@ namespace Game.Presentation
             if (hud != null)
             {
                 hud.ShowStatus("被发现 — 时间回溯", 0.9f);
+            }
+        }
+
+        /// <summary>
+        /// 升降台：站在平台上时自动上升；离开后下降。
+        /// 平台本 tick 的位移会同步给玩家，保证玩家跟着平台走，
+        /// 但不改变水平碰撞/残影回放逻辑。
+        /// </summary>
+        private void UpdateLifts(float dt)
+        {
+            if (lifts == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < lifts.Length; i++)
+            {
+                LiftView lift = lifts[i];
+                if (lift == null)
+                {
+                    continue;
+                }
+
+                bool onLift = lift.Contains(_session.Player.Position);
+                bool active = lift.autoActivateOnStand && onLift;
+                lift.Tick(dt, active);
+
+                if (onLift)
+                {
+                    // 不累加 delta，直接把脚底对齐到平台顶面；
+                    // 否则移动平台 + 重力会让玩家慢慢落在平台顶面下方，卡腿/抽搐。
+                    float correction = lift.transform.position.y - _session.Player.Position.Y;
+                    _session.Player.MoveWithPlatform(Vec3.Up * correction);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 回溯/失败时升降台必须回到底层，避免玩家回到检查点后
+        /// 平台还停在上层，形成不可重复的状态。
+        /// </summary>
+        private void ResetLifts()
+        {
+            if (lifts == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < lifts.Length; i++)
+            {
+                if (lifts[i] != null)
+                {
+                    lifts[i].Reset();
+                }
             }
         }
 
